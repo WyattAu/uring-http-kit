@@ -1,0 +1,7 @@
+[workspace]
+schemaVersion = "1.0.0"
+name = "urings-http-kit-proof"
+version = "0.1.0"
+
+[[lean_lib]]
+name = "UringsHttpKitProof"
