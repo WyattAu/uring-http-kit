@@ -1,0 +1,5 @@
+target/
+vendor/sqlite3.*
+*.db
+*.db-wal
+*.db-shm
