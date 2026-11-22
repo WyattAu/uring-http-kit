@@ -30,6 +30,13 @@ effect materializes only near saturation, which is exactly where the score is se
 A/B on `load-calib.js` at matched CPU% near the knee: fixed vs adaptive cap. Adopt only on
 a measured p95/p99 improvement at equal or better throughput (REQ-URIK-P3 discipline).
 
+## Estate inputs
+
+The estimator is `percentile-kit`'s lock-free sliding window (p50/p95/p99 at runtime), not
+a bespoke EMA; regression gates ride `percentile-budgets.toml`. Bench confinement uses
+`hw-kit` core pinning (process-internal, rule-11 legal; a no-op on the challenge's
+single-vCPU box).
+
 ## Risks
 
 - Controller oscillation near the knee: bound the step, average over windows, and cap

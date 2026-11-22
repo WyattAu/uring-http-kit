@@ -103,10 +103,19 @@ sha256-checked (rusqlite bundled); optional `PGO=1` two-phase profile build (ADR
 
 ## 10. Estate dogfood ledger
 
-Checked against the local estate (228 repos) and GitHub code search (2026-11-22).
+Sweep v1 (2026-11-22) covered the local dev tree only (228 repos). Sweep v2 (same day)
+reconciled against GitHub (311 repos authenticated, 276 public): 98 repos were missing
+locally, including the transport and measurement layers below. Local clones added:
+uring-kit, hw-kit, percentile-kit, kit-conformance, metrics-kit, OmniRust-template.
 
 | Estate asset | Outcome | Note |
 |---|---|---|
+| `uring-kit` | **adopted as dependency** | UringEngine + BufferPool (registered ReadFixed/WriteFixed, zero-malloc hot path) + probe + net helpers replace the planned hand-written loop_.rs; provided-buffer-ring design dropped (registered buffers sidestep the Ubuntu resv[0] bug); SEND_ZC absent from its surface: our P1 lever, contribute upstream if it wins |
+| `percentile-kit` | **adopted as dependency** | lock-free sliding-window p50/p95/p99 = the adaptive scheduler's estimator (ADR 0005); percentile-budgets.toml gates the bench ladder |
+| `hw-kit` | **adopted as dependency** | core pinning for bench confinement and the loop thread (process-internal, rule-11 legal); mmap/mbind hooks for pagestore |
+| `kit-conformance` | **obligation** | shared harness the crates must pass (forbid(unsafe_code) policy per its rules; sqlite-btree's mmap unsafe scoped and justified) |
+| `metrics-kit` | candidate | lock-free counters for fallback/pass-length metrics; adopt at handlers stage |
+| OmniRust-template | pending alignment | repo scaffolding predates discovery; align docs-gate artifacts with the template at release |
 | `oauth-toolkit` (jwt/crypto) | lineage + primitives | HS256 contract and test cases mirrored; hot path uses a specialized zero-copy parser (serde decode_hs256 costs ~2-4 us/authed request); upstream `decode_hs256_raw` contribution filed as follow-up |
 | `hmac` + `base64` crates (as used by oauth-toolkit) | adopted | hand-rolled HMAC/base64 removed; `hmac` clonable MAC state = midstate-reuse lever (P3) |
 | `errcode` (http-error successor) | rejected | maps Validation to 422; SPEC mandates 400 with exact challenge strings (exact bytes win) |

@@ -30,3 +30,12 @@ always lands before its response leaves; within a pass, reads share one snapshot
   the degradation ladder caps worst cases; measure in the ladder).
 - Checkpoint pauses appear on the loop; at ~1 s cadence and 2..4 ms cost they stay under
   0.5% of requests (verify in bench, SPEC Q4).
+
+## Amendment (2026-11-22, sweep v2)
+
+The loop is **uring-kit's** (`UringEngine` + `BufferPool`), not hand-written: registered
+`ReadFixed`/`WriteFixed` buffers replace provided-buffer rings (equivalent zero-malloc goal;
+sidesteps the Ubuntu resv[0] registration bug by construction); multishot accept becomes
+completion-driven re-arm accept; `probe` handles kernel feature detection (SEND_ZC
+availability). `uring-http` keeps: HTTP parser, router, JSON templates, pass scheduler,
+degradation ladder. The event-loop layer is deleted from this repo's scope.
