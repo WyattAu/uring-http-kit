@@ -13,6 +13,7 @@
 #![forbid(unsafe_op_in_unsafe_fn)]
 
 pub mod record;
+pub mod shim;
 pub mod varint;
 
 /// Decode error: every failure is a bounded, total, allocation-free `Option`/`Err`
