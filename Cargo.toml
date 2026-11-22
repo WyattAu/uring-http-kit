@@ -13,4 +13,4 @@ libc = "0.2"
 proptest = "1"
 memmap2 = "0.9"
 rusqlite = { version = "0.32", features = ["bundled"] }
-uring-kit = { path = "../uring-kit" }
+uring-kit = { git = "https://github.com/WyattAu/uring-kit", rev = "a811d22a1d4500d065e5e7d26402b430690165b7" }
