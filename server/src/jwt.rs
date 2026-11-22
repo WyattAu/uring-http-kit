@@ -37,8 +37,8 @@ pub enum JwtError {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Claims {
     pub user_id: i64,
-    /// `username` used as-is (SPEC: no lookup).
-    pub username_len: usize,
+    /// `username` bytes, used as-is (SPEC: no lookup).
+    pub username: Vec<u8>,
 }
 
 /// Base64url decode, unpadded or padded tolerated, garbage rejected.
@@ -91,7 +91,7 @@ impl KeyedMac {
     }
 
     /// Constant-time verify.
-    pub fn verify(&self, data: &[u8], sig: &[u8; 32]) -> bool {
+    pub fn verify(&self, data: &[u8], sig: &[u8]) -> bool {
         ct_eq(&self.sign(data), sig)
     }
 }
@@ -174,9 +174,14 @@ fn json_member<'a>(obj: &'a [u8], key: &[u8]) -> Option<&'a [u8]> {
     None
 }
 
-/// Verify `authorization_value` (raw header value after trimming). Returns
-/// the claims or the SPEC error row.
-pub fn verify(authorization_value: Option<&[u8]>, secret: &[u8], now: i64) -> Result<Claims, JwtError> {
+/// Verify `authorization_value` (raw header value after trimming) with the
+/// startup-keyed MAC (P3: the HMAC key schedule is paid once). Returns the
+/// claims or the SPEC error row.
+pub fn verify(
+    authorization_value: Option<&[u8]>,
+    mac: &KeyedMac,
+    now: i64,
+) -> Result<Claims, JwtError> {
     let value = match authorization_value {
         Some(v) if v.starts_with(b"Bearer ") => &v[7..],
         _ => return Err(JwtError::MissingBearer),
@@ -197,7 +202,7 @@ pub fn verify(authorization_value: Option<&[u8]>, secret: &[u8], now: i64) -> Re
     // signing input = header.payload (original bytes)
     let dot = value.len() - sig_b64.len() - 1;
     let signing_input = &value[..dot];
-    if !ct_eq(&hmac_sha256(secret, signing_input), &sig) {
+    if !mac.verify(signing_input, &sig) {
         return Err(JwtError::InvalidToken);
     }
     // header: must declare HS256
@@ -228,7 +233,7 @@ pub fn verify(authorization_value: Option<&[u8]>, secret: &[u8], now: i64) -> Re
     if username.is_empty() {
         return Err(JwtError::InvalidPayload);
     }
-    Ok(Claims { user_id, username_len: username.len() })
+    Ok(Claims { user_id, username: username.to_vec() })
 }
 
 #[cfg(test)]
@@ -268,56 +273,66 @@ mod tests {
 
     #[test]
     fn valid_token_verifies() {
+        let mac = test_mac();
         let t = make_token(r#"{"alg":"HS256","typ":"JWT"}"#, &valid_payload(9_999_999_999), SECRET);
-        let c = verify(Some(format!("Bearer {t}").as_bytes()), SECRET, 1_700_000_100).unwrap();
+        let c = verify(Some(format!("Bearer {t}").as_bytes()), &mac, 1_700_000_100).unwrap();
         assert_eq!(c.user_id, 123);
+        assert_eq!(c.username, b"wyatt".to_vec());
     }
+
+    fn test_mac() -> KeyedMac { KeyedMac::new(SECRET) }
 
     #[test]
     fn missing_or_wrong_prefix() {
-        assert_eq!(verify(None, SECRET, 0), Err(JwtError::MissingBearer));
-        assert_eq!(verify(Some(b"Basic abc"), SECRET, 0), Err(JwtError::MissingBearer));
-        assert_eq!(verify(Some(b"Bearer"), SECRET, 0), Err(JwtError::MissingBearer));
+        let mac = test_mac();
+        assert_eq!(verify(None, &mac, 0), Err(JwtError::MissingBearer));
+        assert_eq!(verify(Some(b"Basic abc"), &mac, 0), Err(JwtError::MissingBearer));
+        assert_eq!(verify(Some(b"Bearer"), &mac, 0), Err(JwtError::MissingBearer));
     }
 
     #[test]
     fn tampered_payload_fails_signature() {
+        let mac = test_mac();
         let t = make_token(r#"{"alg":"HS256"}"#, &valid_payload(9_999_999_999), SECRET);
         let mut t2 = format!("Bearer {t}").into_bytes();
         // flip a payload char
         let mid = t2.len() / 2;
         t2[mid] = if t2[mid] == b'a' { b'b' } else { b'a' };
-        assert_eq!(verify(Some(&t2), SECRET, 0), Err(JwtError::InvalidToken));
+        assert_eq!(verify(Some(&t2), &mac, 0), Err(JwtError::InvalidToken));
     }
 
     #[test]
     fn wrong_alg_rejected() {
+        let mac = test_mac();
         let t = make_token(r#"{"alg":"HS512"}"#, &valid_payload(9_999_999_999), SECRET);
-        assert_eq!(verify(Some(format!("Bearer {t}").as_bytes()), SECRET, 0), Err(JwtError::InvalidToken));
+        assert_eq!(verify(Some(format!("Bearer {t}").as_bytes()), &mac, 0), Err(JwtError::InvalidToken));
     }
 
     #[test]
     fn expired_rejected() {
+        let mac = test_mac();
         let t = make_token(r#"{"alg":"HS256"}"#, &valid_payload(1_700_000_000), SECRET);
-        assert_eq!(verify(Some(format!("Bearer {t}").as_bytes()), SECRET, 1_700_000_000), Err(JwtError::InvalidToken));
+        assert_eq!(verify(Some(format!("Bearer {t}").as_bytes()), &mac, 1_700_000_000), Err(JwtError::InvalidToken));
     }
 
     #[test]
     fn bad_sub_or_username_payload_row() {
+        let mac = test_mac();
         let t = make_token(r#"{"alg":"HS256"}"#, r#"{"sub":"abc","username":"w","exp":9999999999}"#, SECRET);
-        assert_eq!(verify(Some(format!("Bearer {t}").as_bytes()), SECRET, 0), Err(JwtError::InvalidPayload));
+        assert_eq!(verify(Some(format!("Bearer {t}").as_bytes()), &mac, 0), Err(JwtError::InvalidPayload));
         let t = make_token(r#"{"alg":"HS256"}"#, r#"{"sub":"0","username":"w","exp":9999999999}"#, SECRET);
-        assert_eq!(verify(Some(format!("Bearer {t}").as_bytes()), SECRET, 0), Err(JwtError::InvalidPayload));
+        assert_eq!(verify(Some(format!("Bearer {t}").as_bytes()), &mac, 0), Err(JwtError::InvalidPayload));
         let t = make_token(r#"{"alg":"HS256"}"#, r#"{"sub":"5","exp":9999999999}"#, SECRET);
-        assert_eq!(verify(Some(format!("Bearer {t}").as_bytes()), SECRET, 0), Err(JwtError::InvalidPayload));
+        assert_eq!(verify(Some(format!("Bearer {t}").as_bytes()), &mac, 0), Err(JwtError::InvalidPayload));
     }
 
     #[test]
     fn malformed_tokens_invalid_row() {
-        assert_eq!(verify(Some(b"Bearer a.b"), SECRET, 0), Err(JwtError::InvalidToken));
-        assert_eq!(verify(Some(b"Bearer !.x.y"), SECRET, 0), Err(JwtError::InvalidToken));
-        assert_eq!(verify(Some(b"Bearer a.b.c.d"), SECRET, 0), Err(JwtError::InvalidToken));
-        assert_eq!(verify(Some(b"Bearer AA.AA.AA"), SECRET, 0), Err(JwtError::InvalidToken)); // sig len != 32
+        let mac = test_mac();
+        assert_eq!(verify(Some(b"Bearer a.b"), &mac, 0), Err(JwtError::InvalidToken));
+        assert_eq!(verify(Some(b"Bearer !.x.y"), &mac, 0), Err(JwtError::InvalidToken));
+        assert_eq!(verify(Some(b"Bearer a.b.c.d"), &mac, 0), Err(JwtError::InvalidToken));
+        assert_eq!(verify(Some(b"Bearer AA.AA.AA"), &mac, 0), Err(JwtError::InvalidToken)); // sig len != 32
     }
 
     #[test]

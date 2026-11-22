@@ -114,8 +114,12 @@ pub fn dispatch<'a>(req: &Request<'a>) -> Dispatch<'a> {
 /// Auth check for authenticated routes. SPEC: check auth FIRST, then the id.
 /// The router defers id-parse errors so the handler can return 401 first —
 /// `dispatch` returns the id error only for the caller to order correctly.
-pub fn auth_error(auth: Option<&[u8]>, secret: &[u8], now: i64) -> Option<(u16, &'static str)> {
-    crate::jwt::verify(auth, secret, now).err().map(jwt_err_row)
+pub fn auth_error(
+    auth: Option<&[u8]>,
+    mac: &crate::jwt::KeyedMac,
+    now: i64,
+) -> Option<(u16, &'static str)> {
+    crate::jwt::verify(auth, mac, now).err().map(jwt_err_row)
 }
 
 #[cfg(test)]
