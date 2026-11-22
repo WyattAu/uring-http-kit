@@ -11,3 +11,5 @@ repository = "https://github.com/WyattAu/uring-http-kit"
 io-uring = "0.7"
 libc = "0.2"
 proptest = "1"
+memmap2 = "0.9"
+rusqlite = { version = "0.32", features = ["bundled"] }
