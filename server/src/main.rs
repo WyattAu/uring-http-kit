@@ -1,6 +1,8 @@
 //! The $12 Server Challenge submission binary.
 //! Config comes only from env (SPEC.md): SQLITE_PATH, JWT_SECRET, HOST, PORT.
 
+pub mod jwt;
+
 fn main() {
     let sqlite_path = std::env::var("SQLITE_PATH").expect("SQLITE_PATH");
     let jwt_secret = std::env::var("JWT_SECRET").expect("JWT_SECRET");
