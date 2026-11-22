@@ -11,5 +11,6 @@ sqlite-btree = { path = "../crates/sqlite-btree" }
 io-uring.workspace = true
 libc.workspace = true
 sha2 = "0.10"
+rusqlite = { workspace = true, features = ["bundled"] }
 hmac = "0.12"
 base64 = "0.22"

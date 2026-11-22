@@ -210,6 +210,7 @@ dependencies = [
  "hmac",
  "io-uring",
  "libc",
+ "rusqlite",
  "sha2",
  "sqlite-btree",
  "uring-http",
