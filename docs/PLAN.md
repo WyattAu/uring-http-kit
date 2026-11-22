@@ -69,12 +69,20 @@ Protocol: server pinned core 2, k6 confined cores 3-5, load-calib.js
 
 | Server | Points (rate @ CPU%) | Marginal per-request cost |
 |---|---|---|
-| kensac (incumbent, rank 1) | 4.9k @ 9.4% / 7.6k @ 9.4% (scale 3/30) | **12.3 us/req** |
-| ours (release, pre-levers) | 5.1k @ 66.2% / 6.4k @ 80.7% | **11.2-13.0 us/req** |
+| kensac (incumbent, rank 1) | paired: 11.1k / 11.3k / 14.3k req/s | ~2x OUR THROUGHPUT |
+| ours (release, pre-levers) | paired: 6.4k / 6.0k / 6.6k req/s | ~2x SLOWER |
 
-Verdict: PARITY with the incumbent before levers. Projection as-is:
-~300-340k users. Lever budget to win: -1 to -4 us/req (E06 scatter-gather
-send, E05 specialized decoders, SHA-NI HMAC, PGO) -> 355-430k projected.
+CORRECTION (2026-11-22, E17 paired interleaved runs — the cross-run
+comparison below was invalid): kensac sustains 11-14k req/s on the confined
+rig where ours sustains 6-6.5k. We are at ~HALF the incumbent, not parity.
+The earlier "12.3 us/req kensac" figure came from a cross-run comparison
+that mixed rig states; the paired protocol supersedes it.
+
+Root cause candidates (code-reviewed, not yet profiled): per-request
+allocations throughout our pipeline (buf.clone per parse, 3 Vec clones per
+feed row, JSON double-buffering, outbox cloning) vs kensac's zero-alloc
+arena design. The fix is the E18/F18 zero-copy emission discipline plus a
+perf profile to rank the offenders.
 
 Rig limit: confined k6 (3 cores) saturates ~6.4k req/s; server capacity
 beyond that is unmeasurable locally -> absolute number needs arjay's box
