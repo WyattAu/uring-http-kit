@@ -83,3 +83,11 @@ beyond that is unmeasurable locally -> absolute number needs arjay's box
 Gotchas recorded: NEVER measure a debug build (5-20x skew, caught 2026-11-22);
 confined p95/p99 are client-artifact-dominated (kensac showed 700ms-1s too);
 THINK_SCALE requires /tmp/opencode/calib/load-calib.js not bench/load.js.
+
+
+## Lever A/B log (E17 discipline: measured or does not ship)
+
+| Lever | Result | Verdict |
+|---|---|---|
+| F23/E16 PGO (profile = 30s bench burst) | rate -10..12% at matched CPU vs plain release (4838 vs 5096 @ ~66%); 5600 vs 6380 @ ~80% | **REJECTED** — profile mismatch; revisit with a full-mix, longer profile |
+| E17 paired A/B harness | adopted: THINK_SCALE staircase + /proc CPU deltas, run-to-run noise ±8% measured | baseline protocol |
