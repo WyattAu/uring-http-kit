@@ -214,6 +214,7 @@ dependencies = [
  "sha2",
  "sqlite-btree",
  "uring-http",
+ "uring-kit",
 ]
 
 [[package]]
@@ -546,6 +547,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3244542535d5de959d90ec55d1b5ff0fd2bb7b1310223907d5f11932847f7b59"
 
 [[package]]
+name = "socket2"
+version = "0.6.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3d1e2c7f27f8d4cb10542a02c49005dbd6e93095799d6f3be745fae9f8fedd4"
+dependencies = [
+ "libc",
+ "windows-sys",
+]
+
+[[package]]
 name = "sqlite-btree"
 version = "0.1.0"
 dependencies = [
@@ -650,6 +661,15 @@ dependencies = [
  "io-uring",
  "libc",
  "sqlite-btree",
+]
+
+[[package]]
+name = "uring-kit"
+version = "0.1.1"
+dependencies = [
+ "io-uring",
+ "libc",
+ "socket2",
 ]
 
 [[package]]

@@ -344,7 +344,7 @@ mod tests {
     #[test]
     fn reader_and_fallback_agree() {
         let (conn, mut store, _dir) = setup();
-        store.refresh_snapshot(&conn);
+        store.refresh_snapshot();
         for id in 1..=50i64 {
             let via_reader = reader_post(&store, id).unwrap();
             let via_fallback = fallback_post(&conn, id);
@@ -373,14 +373,14 @@ mod tests {
         }
         // write path: insert a post, refresh, it appears at the feed head
         let (id, _created) = insert_post(&conn, 3, b"new head post").unwrap();
-        store.refresh_snapshot(&conn);
+        store.refresh_snapshot();
         let head = reader_feed(&store, 1).unwrap();
         assert_eq!(head.len(), 1);
         assert_eq!(head[0].id, id, "new post at feed head after commit+refresh");
         assert_eq!(head[0].body, b"new head post");
         // like it via writer, refresh, count updates
         insert_like(&conn, 5, id).unwrap();
-        store.refresh_snapshot(&conn);
+        store.refresh_snapshot();
         let lc = reader_like_count(&store, id).unwrap();
         assert_eq!(lc, 1, "fresh like visible after commit+refresh");
         let _ = std::fs::remove_dir_all(std::env::temp_dir().join(format!("handlers-{}", std::process::id())));

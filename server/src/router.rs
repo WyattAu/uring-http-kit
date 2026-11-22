@@ -40,6 +40,11 @@ pub mod errors {
     pub const INTERNAL: (u16, &str) = (500, "internal server error");
 }
 
+/// SPEC error row for a JWT failure (used by the pass layer).
+pub fn jwt_row(e: JwtError) -> (u16, &'static str) {
+    jwt_err_row(e)
+}
+
 fn jwt_err_row(e: JwtError) -> (u16, &'static str) {
     match e {
         JwtError::MissingBearer => errors::MISSING_BEARER,
@@ -98,11 +103,10 @@ pub fn dispatch<'a>(req: &Request<'a>) -> Dispatch<'a> {
                 // like route: "/posts/:id/like" — id parse precedes existence,
                 // and auth precedes id (handled by the handler via Dispatch
                 // carrying the auth decision point).
-                if let Some(id_seg) = rest.strip_suffix(b"/like") {
-                    return match parse_post_id(id_seg) {
-                        Some(_) => Dispatch::Route(Route::PostLike, ""),
-                        None => Dispatch::Error(errors::INVALID_POST_ID),
-                    };
+                if rest.ends_with(b"/like") {
+                    // auth precedes id validation (SPEC); the pass layer
+                    // parses the id after the 401 checks
+                    return Dispatch::Route(Route::PostLike, "");
                 }
                 return Dispatch::Error(errors::NOT_FOUND);
             }

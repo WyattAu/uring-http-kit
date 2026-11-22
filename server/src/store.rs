@@ -129,13 +129,22 @@ impl Store {
 
     /// Advance the reader snapshot to the WAL end after write batches
     /// committed through the writer connection.
-    pub fn refresh_snapshot(&mut self, _conn: &Connection) {
+    pub fn refresh_snapshot(&mut self) {
         if let Some(r) = self.reader.as_mut() {
+            let before = r.snapshot();
             if let Err(e) = r.refresh() {
                 eprintln!("store: reader refresh failed ({e:?}); disabling reader");
                 self.reader = None;
+                return;
+            }
+            if std::env::var_os("LOOP_DEBUG").is_some() {
+                eprintln!("refresh: snapshot {} -> {}", before, r.snapshot());
             }
         }
+    }
+
+    pub fn writer_conn(&self) -> &Connection {
+        &self.writer
     }
 
     pub fn health_db(&self) -> bool {
