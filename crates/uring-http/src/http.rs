@@ -84,7 +84,7 @@ pub fn parse(buf: &[u8]) -> Result<Request<'_>, ParseError> {
 
     let mut authorization = None;
     let mut content_length = None;
-    let mut pos = after + 1; // past the request-line \n
+    let mut pos = nl + 1; // past the request-line \n
     loop {
         let nl = find_newline(&buf[pos..], 0).ok_or(ParseError::Incomplete)?;
         let line = strip_cr(&buf[pos..pos + nl]);

@@ -269,7 +269,7 @@ mod tests {
     #[test]
     fn valid_token_verifies() {
         let t = make_token(r#"{"alg":"HS256","typ":"JWT"}"#, &valid_payload(9_999_999_999), SECRET);
-        let c = verify(Some(t.as_bytes()), SECRET, 1_700_000_100).unwrap();
+        let c = verify(Some(format!("Bearer {t}").as_bytes()), SECRET, 1_700_000_100).unwrap();
         assert_eq!(c.user_id, 123);
     }
 
@@ -283,34 +283,33 @@ mod tests {
     #[test]
     fn tampered_payload_fails_signature() {
         let t = make_token(r#"{"alg":"HS256"}"#, &valid_payload(9_999_999_999), SECRET);
-        let mut t2 = t.clone();
+        let mut t2 = format!("Bearer {t}").into_bytes();
         // flip a payload char
-        let mid = t.len() / 2;
-        let b = t2.as_bytes_mut();
-        b[mid] = if b[mid] == b'a' { b'b' } else { b'a' };
-        assert_eq!(verify(Some(t2.as_bytes()), SECRET, 0), Err(JwtError::InvalidToken));
+        let mid = t2.len() / 2;
+        t2[mid] = if t2[mid] == b'a' { b'b' } else { b'a' };
+        assert_eq!(verify(Some(&t2), SECRET, 0), Err(JwtError::InvalidToken));
     }
 
     #[test]
     fn wrong_alg_rejected() {
         let t = make_token(r#"{"alg":"HS512"}"#, &valid_payload(9_999_999_999), SECRET);
-        assert_eq!(verify(Some(t.as_bytes()), SECRET, 0), Err(JwtError::InvalidToken));
+        assert_eq!(verify(Some(format!("Bearer {t}").as_bytes()), SECRET, 0), Err(JwtError::InvalidToken));
     }
 
     #[test]
     fn expired_rejected() {
         let t = make_token(r#"{"alg":"HS256"}"#, &valid_payload(1_700_000_000), SECRET);
-        assert_eq!(verify(Some(t.as_bytes()), SECRET, 1_700_000_000), Err(JwtError::InvalidToken));
+        assert_eq!(verify(Some(format!("Bearer {t}").as_bytes()), SECRET, 1_700_000_000), Err(JwtError::InvalidToken));
     }
 
     #[test]
     fn bad_sub_or_username_payload_row() {
         let t = make_token(r#"{"alg":"HS256"}"#, r#"{"sub":"abc","username":"w","exp":9999999999}"#, SECRET);
-        assert_eq!(verify(Some(t.as_bytes()), SECRET, 0), Err(JwtError::InvalidPayload));
+        assert_eq!(verify(Some(format!("Bearer {t}").as_bytes()), SECRET, 0), Err(JwtError::InvalidPayload));
         let t = make_token(r#"{"alg":"HS256"}"#, r#"{"sub":"0","username":"w","exp":9999999999}"#, SECRET);
-        assert_eq!(verify(Some(t.as_bytes()), SECRET, 0), Err(JwtError::InvalidPayload));
+        assert_eq!(verify(Some(format!("Bearer {t}").as_bytes()), SECRET, 0), Err(JwtError::InvalidPayload));
         let t = make_token(r#"{"alg":"HS256"}"#, r#"{"sub":"5","exp":9999999999}"#, SECRET);
-        assert_eq!(verify(Some(t.as_bytes()), SECRET, 0), Err(JwtError::InvalidPayload));
+        assert_eq!(verify(Some(format!("Bearer {t}").as_bytes()), SECRET, 0), Err(JwtError::InvalidPayload));
     }
 
     #[test]

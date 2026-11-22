@@ -31,7 +31,7 @@ pub struct Field {
     pub len: usize,
 }
 
-/// Body byte-length contributed by a serial type. Total, pure.
+/// Body byte-length contributed by a serial type. Total, pure, branch-light.
 #[inline]
 pub const fn serial_type_body_len(serial_type: u64) -> Option<usize> {
     match serial_type {
@@ -45,29 +45,36 @@ pub const fn serial_type_body_len(serial_type: u64) -> Option<usize> {
         7 => Some(8),
         10 | 11 => None, // reserved, reject
         n => {
-            let payload = (n.wrapping_sub(12)) / 2;
-            // Cap at i64-safe range for usize targets; files are < 4 GiB here.
-            Some(payload.min(1 << 62) as usize)
+            // (n - 12) / 2; on 64-bit targets usize == u64 so no truncation.
+            // Garbage-sized types are caught by the body_off bounds check.
+            Some(((n.wrapping_sub(12)) / 2) as usize)
         }
     }
 }
 
-/// Decode the header of a record body: returns the fields with their body
-/// offsets, and the total body length the header declares. `buf` is the
-/// full record payload (header + body).
-pub fn decode_header(buf: &[u8]) -> Result<(usize, Vec<Field>), DecodeError> {
+/// Decode the header of a record body into `out`, allocation-free.
+/// Returns `(body_len, field_count)` where `body_len` is the total record
+/// body length the header declares and `field_count` is how many entries of
+/// `out` were populated. `buf` is the full record payload (header + body).
+/// Returns `DecodeError::SizeMismatch`-adjacent `TooManyFields` when `out`
+/// is shorter than the header declares.
+pub fn decode_header(buf: &[u8], out: &mut [Field]) -> Result<(usize, usize), DecodeError> {
     let (header_size, mut pos) = varint::decode(buf).map_err(|_| DecodeError::Truncated)?;
     if header_size < (pos as u64) || header_size as usize > buf.len() {
         return Err(DecodeError::SizeMismatch);
     }
     let header_end = header_size as usize;
-    let mut fields = Vec::new();
+    let mut count = 0usize;
     let mut body_off = header_end;
     while pos < header_end {
         let (st, n) = varint::decode(&buf[pos..]).map_err(|_| DecodeError::Truncated)?;
         pos += n;
         let len = serial_type_body_len(st).ok_or(DecodeError::BadSerialType)?;
-        fields.push(Field { serial_type: st, offset: body_off, len });
+        if count >= out.len() {
+            return Err(DecodeError::TooManyFields);
+        }
+        out[count] = Field { serial_type: st, offset: body_off, len };
+        count += 1;
         body_off += len;
     }
     if pos != header_end {
@@ -76,7 +83,7 @@ pub fn decode_header(buf: &[u8]) -> Result<(usize, Vec<Field>), DecodeError> {
     if body_off > buf.len() {
         return Err(DecodeError::SizeMismatch);
     }
-    Ok((body_off, fields))
+    Ok((body_off, count))
 }
 
 // TODO(challenge): record → JSON direct encoder for the `posts` shape

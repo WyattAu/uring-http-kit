@@ -28,4 +28,6 @@ pub enum DecodeError {
     BadSerialType,
     /// Declared record size does not match the payload available.
     SizeMismatch,
+    /// Record declares more fields than the caller's output buffer holds.
+    TooManyFields,
 }

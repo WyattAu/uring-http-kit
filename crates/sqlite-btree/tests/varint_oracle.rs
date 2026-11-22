@@ -34,15 +34,19 @@ proptest! {
     }
 }
 
-/// SQLite varint encoding (getVarint inverse): 7-bit groups big-endian with
-/// continuation bits; values ≥ 2^56 use 9 bytes, the last carrying 8 bits.
+/// SQLite varint encoding (getVarint inverse), per sqlite3PutVarint:
+/// 9-byte form first (low byte in slot 8, then 7-bit groups of `v >> 8`
+/// filling bytes 7..0 LSB-first, all with continuation bits).
 fn encode(v: u64) -> ([u8; 9], usize) {
     let mut buf = [0u8; 9];
     if v >> 56 != 0 {
-        for (i, b) in buf.iter_mut().take(8).enumerate() {
-            *b = (((v >> (56 - 7 * i)) & 0x7f) as u8) | 0x80;
-        }
         buf[8] = (v & 0xff) as u8;
+        let mut n = v >> 8;
+        for i in (1..8).rev() {
+            buf[i] = ((n & 0x7f) as u8) | 0x80;
+            n >>= 7;
+        }
+        buf[0] = ((n & 0x7f) as u8) | 0x80;
         return (buf, 9);
     }
     let mut n = 1usize;

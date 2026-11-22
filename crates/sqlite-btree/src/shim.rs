@@ -41,7 +41,7 @@ pub struct KeyInfo {
     _private: [u8; 0],
 }
 
-extern "C" {
+unsafe extern "C" {
     pub fn sqlite3BtreeCursorSize() -> i32;
     pub fn sqlite3BtreeCursorZero(cur: *mut BtCursor);
     pub fn sqlite3BtreeCursor(
