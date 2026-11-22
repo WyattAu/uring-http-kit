@@ -244,12 +244,11 @@ impl<'a> IndexScan<'a> {
         Ok(payload)
     }
 
-    /// In-order advance. Exact port of SQLite btreeNext (sqlite3.c 3.54):
-    /// idx = ++ix; ix < ncells on a leaf emits cell[ix], on an interior page
-    /// descends child_of(ix) to its leftmost; ix == ncells pops, and an
-    /// index-interior parent emits its own cell at its UNCHANGED ix — that
-    /// increment belongs to the next call. Interior cells are real entries,
-    /// emitted exactly once on the pop-back of their left subtree.
+    /// In-order advance. Port of SQLite btreeNext (sqlite3.c 3.54). Invariant:
+    /// every level's `ix` is the index of the NEXT entry to emit at that
+    /// level; the loop top increments before reading, so emission uses the
+    /// pre-increment copy. Interior cells are real entries, emitted exactly
+    /// once on the pop-back of their left subtree.
     pub fn advance(&mut self) -> Result<Option<&'a [u8]>, ReaderError> {
         loop {
             let Some(top_m) = self.stack.last_mut() else {
@@ -278,16 +277,23 @@ impl<'a> IndexScan<'a> {
                 }
                 continue;
             }
-            // leaf exhausted -> pop; parent's ix is untouched
-            self.stack.pop();
-            let Some(parent_m) = self.stack.last_mut() else {
-                return Ok(None);
-            };
-            let parent = *parent_m;
-            if !parent.leaf && parent.ix < parent.ncells {
-                return Ok(Some(self.level_payload(&parent, parent.ix)?));
+            // Leaf exhausted -> btreeNext's pop loop: keep moving UP while
+            // each ancestor is itself exhausted (ix >= ncells: its cells and
+            // right subtree are all done). The first live ancestor emits its
+            // separator cell at its ix, then ix advances past it so the next
+            // call enters child_of(ix+1). Never re-descend a right subtree.
+            loop {
+                self.stack.pop();
+                let Some(parent) = self.stack.last().copied() else {
+                    return Ok(None);
+                };
+                if !parent.leaf && parent.ix < parent.ncells {
+                    if let Some(m) = self.stack.last_mut() {
+                        m.ix += 1;
+                    }
+                    return Ok(Some(self.level_payload(&parent, parent.ix)?));
+                }
             }
-            continue;
         }
     }
 
@@ -319,7 +325,9 @@ impl<'a> IndexScan<'a> {
             }
             let leaf = true;
             let right = None;
-            self.stack.push(Level { pgno, ix: 0, ncells, leaf, right });
+            // cell[0] is returned as this call's entry; ix starts at 1 so the
+            // next advance() emits cell[1] (invariant: ix = next-to-emit).
+            self.stack.push(Level { pgno, ix: 1, ncells, leaf, right });
             let lvl = self.stack.last().unwrap();
             return Ok(Some(self.level_payload(lvl, 0)?));
         }
