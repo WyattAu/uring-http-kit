@@ -99,3 +99,11 @@ THINK_SCALE requires /tmp/opencode/calib/load-calib.js not bench/load.js.
 |---|---|---|
 | F23/E16 PGO (profile = 30s bench burst) | rate -10..12% at matched CPU vs plain release (4838 vs 5096 @ ~66%); 5600 vs 6380 @ ~80% | **REJECTED** — profile mismatch; revisit with a full-mix, longer profile |
 | E17 paired A/B harness | adopted: THINK_SCALE staircase + /proc CPU deltas, run-to-run noise ±8% measured | baseline protocol |
+
+
+## A/B run 3 (2026-11-22, box-degraded — INCONCLUSIVE)
+Heavy external load (other sessions: rustc builds, docker, ML trainer) suppressed
+both arms 2-3x vs their ab2 runs. Paired ratios ours/kensac: 0.73, 0.61, 0.39 —
+no clean verdict possible. The ab2 dataset (quiet window) remains the reference.
+Rule: definitive A/Bs only in quiet windows (the ladder gate) or on the
+benchmark box itself.
