@@ -1,0 +1,20 @@
+# uring-http-kit
+
+> uring-http-kit: single-thread io_uring HTTP/1.1 kit with a pure-Rust read-only
+> SQLite reader (mmap B-tree + WAL frames). Built for the arjaythedev $12 Server
+> Challenge; five JSON endpoints, one CPU core, writes via rusqlite.
+
+- Spec: docs/SPEC.md (REQ-URIK-*, tier k, DRAFT)
+- Decisions: docs/adr/0001-pure-rust-reader, 0002-backward-walk-feed,
+  0003-single-thread-pass-model, 0004-writes-via-rusqlite
+- Crates: sqlite-btree (decoders + reader, no_std), uring-http (loop/parser/json),
+  feed-server (bin)
+- Verification: Lean proofs (proof/), proptest oracles, differential query suite,
+  challenge conformance (test/test.sh), bench ladder (bench/)
+
+# fast-track
+
+- decode: crates/sqlite-btree/src/varint.rs, record.rs
+- read: crates/sqlite-btree/src/page.rs, btree.rs, wal.rs, pagestore.rs (planned)
+- serve: crates/uring-http/src/loop_.rs, http.rs, json.rs
+- endpoints: server/src/handlers.rs, store.rs (planned)

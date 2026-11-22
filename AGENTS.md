@@ -1,14 +1,27 @@
-# AGENTS.md — uring-http-kit
+# AGENTS.md; uring-http-kit
 
-Single contract for this repo. Estate standards: `WyattAu/engineering-standards`.
+Single contract for this repo. Estate standards: `WyattAu/engineering-standards`;
+normative rules live in `docs/SPEC.md` (tier k, status DRAFT).
+
+## Truth table (endpoint behavior, from docs/SPEC.md section 3)
+
+| Endpoint | Success | Error precedence | Oracle |
+|---|---|---|---|
+| GET /health | 200 ok/ok/uptime_s | 503 on SELECT 1 failure | handlers::health tests |
+| GET /feed | 200 {"posts":[20]} | R4 invariant fallback path | query_oracle + conformance |
+| GET /posts/:id | 200 {"post":...} | 400 invalid id; 404 not found | conformance |
+| POST /posts | 201 | 401 rows, then 400 body rows | conformance + jwt tests |
+| POST /posts/:id/like | 201 first / 200 repeat | 401 rows, 400 invalid id, 404 not found | conformance |
 
 ## Crate map
 
-- `crates/sqlite-btree` — `no_std` decoders. Every decoder: total, bounds-checked,
-  allocation-free. Panics and unwraps in non-test code are forbidden.
-- `crates/uring-http` — io_uring loop, HTTP parser, JSON templates. Unsafe is
-  confined to FFI shims; `#![forbid(unsafe_op_in_unsafe_fn)]` everywhere.
-- `server/` — challenge bin. Reads only SPEC env vars.
+- `crates/sqlite-btree`: `no_std` decoders + page/WAL reader. Every decoder: total,
+  bounds-checked, allocation-free. Panics and unwraps in non-test code are forbidden.
+  Unsafe confined to mmap construction (`MappedFile`).
+- `crates/uring-http`: io_uring loop, HTTP parser, JSON templates.
+  `#![forbid(unsafe_op_in_unsafe_fn)]` everywhere.
+- `server/`: challenge bin. Reads only SPEC env vars. Writes via rusqlite.
+- `csrc/shim.c`: fallback path, unwired (ADR 0001).
 
 ## Rules
 
@@ -17,9 +30,10 @@ Single contract for this repo. Estate standards: `WyattAu/engineering-standards`
 2. Build artifacts go to the shared target: export
    `CARGO_TARGET_DIR="$HOME/.cache/cargo-target"`. Never commit a
    `.cargo/config.toml` carrying that path.
-3. Proof targets listed in README are contracts: changing a decoder signature
-   invalidates the Lean obligation — update `proof/` in the same commit.
-4. Differential oracle (tests vs real sqlite3) is the semantic ground truth;
+3. Proof targets in SPEC section 6 are contracts: changing a decoder signature
+   invalidates the Lean obligation; update `proof/` in the same commit.
+4. The differential oracle (tests vs real sqlite3) is semantic ground truth;
    Lean proves structure, the oracle proves meaning.
-5. Pending estate wiring: REQUIREMENTS/SECURITY/THREAT-MODEL/supply-chain/CI
-   rust-kit workflow + estate.yml registration land with the first real release.
+5. No em-dashes in any repo document (DOC-STYLE).
+6. Pending estate wiring: CI rust-kit workflow, supply-chain, llms.txt refresh,
+   estate.yml registration land with the first release.
