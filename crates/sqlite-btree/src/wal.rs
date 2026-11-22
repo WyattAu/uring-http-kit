@@ -86,8 +86,14 @@ impl WalIndex {
             // scan starts after the header; full frame chain verified at open
             mapped_len: WAL_HEADER,
         };
+        // SQLite semantics: the first invalid frame TERMINATES the wal.
+        // After a RESTART checkpoint the file keeps old-generation bytes
+        // beyond the new frames; those fail salt/chain checks and are
+        // simply not indexed (the valid prefix is the database).
         match idx.scan_new_frames(&map[..]) {
-            Ok(ScanResult::Invalid) => return Ok(Err(ReaderError::WalFrameBad)),
+            Ok(ScanResult::Invalid) | Ok(ScanResult::Truncated) => {
+                idx.mapped_len = map.len();
+            }
             Ok(_) => {}
             Err(e) => return Err(io::Error::new(io::ErrorKind::Other, e.to_string())),
         }

@@ -1,0 +1,34 @@
+{"synthetic": false,
+ "schemaVersion": "2025-09-10",
+ "outputs":
+ {"o": ["dbd72badacb8261f.olean"],
+  "m": false,
+  "i": "b2113c721ff08d7b.ilean",
+  "c": "ced8ed995c4d75f9.c"},
+ "log":
+ [{"message":
+   ".> LEAN_PATH=/home/wyatt/dev/src/github.com/WyattAu/uring-http-kit/proof/.lake/build/lib/lean /home/wyatt/.elan/toolchains/leanprover--lean4---v4.36.0/bin/lean /home/wyatt/dev/src/github.com/WyattAu/uring-http-kit/proof/UringsHttpKitProof.lean -o /home/wyatt/dev/src/github.com/WyattAu/uring-http-kit/proof/.lake/build/lib/lean/UringsHttpKitProof.olean -i /home/wyatt/dev/src/github.com/WyattAu/uring-http-kit/proof/.lake/build/lib/lean/UringsHttpKitProof.ilean -c /home/wyatt/dev/src/github.com/WyattAu/uring-http-kit/proof/.lake/build/ir/UringsHttpKitProof.c --setup /home/wyatt/dev/src/github.com/WyattAu/uring-http-kit/proof/.lake/build/ir/UringsHttpKitProof.setup.json --json",
+   "level": "trace"},
+  {"message":
+   "UringsHttpKitProof.lean:27:7: Variable name `b` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _b\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`",
+   "level": "warning"}],
+ "inputs":
+ [["deps",
+   [["urings_http_kit_proof/UringsHttpKitProof:extraDep",
+     [["@urings_http_kit_proof:extraDep", "00000000000006bb"]]],
+    ["imports", "00000000000006bb"]]],
+  ["libs",
+   [["import dynlibs", "00000000000006bb"],
+    ["package external libraries", "00000000000006bb"],
+    ["module dynlibs", "00000000000006bb"],
+    ["module plugins", "00000000000006bb"]]],
+  ["Lean 4.36.0, commit 611c117bfaf7b7ae1cfcf246ce6fba31e8f509e9",
+   "bd5dd4b1191d6a49"],
+  ["/home/wyatt/dev/src/github.com/WyattAu/uring-http-kit/proof/UringsHttpKitProof.lean",
+   "e9edc33dd5399ead"],
+  ["options", "00000000000006bb"],
+  ["isModule: false", "feefd2a0d3a1847e"],
+  ["Module.name: UringsHttpKitProof", "811aeb93360ed6b3"],
+  ["Package.id?: (some urings_http_kit_proof)", "9cb9486de512d437"],
+  ["Module.leanArgs: #[]", "00000000000006bb"]],
+ "depHash": "d13948dedbfb8f65"}
