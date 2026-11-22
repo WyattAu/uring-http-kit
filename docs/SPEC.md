@@ -65,13 +65,14 @@ agree with SQLite on the fixed schema. Writes go through the bundled SQLite via 
 | REQ-URIK-C1 | No caching of request data across requests: every response's data is read from the database in the pass that serves it (challenge rule 5). Precomputed constants allowed: HTTP header templates, HMAC key midstates, page/buffer pools | code review gate + conformance |
 | REQ-URIK-C2 | Writes are durable before their response: a pass's writes commit (rusqlite `COMMIT`) before that pass's responses are sent (challenge rule 6, group commit form) | conformance "created_at is now" and read-back checks |
 | REQ-URIK-C3 | WAL mode with `synchronous=NORMAL` or stronger; autocheckpoint disabled; checkpoints run on the loop thread between passes, TRUNCATE mode, so the WAL mmap stays bounded | `store.rs` startup pragma tests |
-| REQ-URIK-C4 | Single-threaded request work; no locks on the hot path; io_uring `DEFER_TASKRUN` + multishot accept/recv + provided buffer rings; send via `SEND_ZC` with `send` fallback (ADR 0003) | bench ladder; kernel-feature probe test |
+| REQ-URIK-C4 | Single-threaded request work; no locks on the hot path; transport = uring-kit (`UringEngine`, registered `ReadFixed`/`WriteFixed` buffers, `probe`); send via `SEND_ZC` with `send` fallback (ADR 0003 amended) | bench ladder; kernel-feature probe test |
+| REQ-URIK-C5 | Connection lifecycle per ADR 0006: server-first close, no linger, adaptive idle timeout driven by an fd budget (< 45,000); active requests never dropped | fd-pressure test: 20k local VUs at T=0 with < 1% errors |
 
 ## 6. Performance requirements (targets with a bench oracle)
 
 | REQ | Target | Oracle |
 |---|---|---|
-| REQ-URIK-P1 | Projected score > 310,000 users on the challenge box; ship bar: local confined-ladder projection >= 40,000 req/s with the calibration factor applied | `bench/` ladder protocol + calibration ledger entry |
+| REQ-URIK-P1 | Beat kensac's measured per-request cost (12.3 us/req local, 82%-CPU equivalent 66.5k req/s local): ship gate <= 11.2 us/req local => projected 341k users; stretch targets 9.5 (400k) and 7.6 (500k). Calibration factor 2.28x, error bars +-15% | `bench/` ladder + ledger calibration entry |
 | REQ-URIK-P2 | p95 < 500 ms, p99 < 1 s, errors < 1% at the projected maximum (5-minute hold) | challenge `bench/load.js` |
 | REQ-URIK-P3 | Every optimization lever lands with an A/B measurement on `load-calib.js`; unmeasured levers do not ship | ledger A/B table |
 
