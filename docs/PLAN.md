@@ -6,11 +6,11 @@ server, and land the components as reusable estate kits regardless of score.
 
 ## Doc map (recall order after compaction or restart)
 
-1. `~/dev/src/arjaythedev/LEDGER.md` — session ledger: status table, decisions, evidence
-2. `docs/SPEC.md` — normative requirements REQ-URIK-* + verification matrix (s6) + dogfood ledger (s10)
+1. `~/dev/src/arjaythedev/LEDGER.md` ;  session ledger: status table, decisions, evidence
+2. `docs/SPEC.md` ;  normative requirements REQ-URIK-* + verification matrix (s6) + dogfood ledger (s10)
 3. this file, section "Current phase" below
 4. the current phase's ADRs (`docs/adr/0001..0005`)
-5. `docs/FRONTIER.md` — 50-item improvement catalog; only items with A/B evidence ship
+5. `docs/FRONTIER.md` ;  50-item improvement catalog; only items with A/B evidence ship
 
 ## Bars
 
