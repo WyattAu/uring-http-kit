@@ -96,7 +96,26 @@ sha256-checked (rusqlite bundled); optional `PGO=1` two-phase profile build (ADR
 
 | # | Question | Resolution path |
 |---|---|---|
-| Q1 | Pass cadence: event-immediate vs fixed ~2 ms batching | A/B on load-calib.js (P3 protocol) |
+| Q1 | Pass cadence: event-immediate vs fixed vs adaptive cap (ADR 0005) | A/B on load-calib.js (P3 protocol) |
 | Q2 | sendzc vs send crossover point by response size | A/B at 0.2 KB and 4.5 KB responses |
 | Q3 | Calibration factor error bars (local confined vs challenge box) | ladder5 result + sensitivity note in ledger |
 | Q4 | Checkpoint cadence vs WAL mmap growth | frame-threshold sweep in bench |
+
+## 10. Estate dogfood ledger
+
+Checked against the local estate (228 repos) and GitHub code search (2026-11-22).
+
+| Estate asset | Outcome | Note |
+|---|---|---|
+| `oauth-toolkit` (jwt/crypto) | lineage + primitives | HS256 contract and test cases mirrored; hot path uses a specialized zero-copy parser (serde decode_hs256 costs ~2-4 us/authed request); upstream `decode_hs256_raw` contribution filed as follow-up |
+| `hmac` + `base64` crates (as used by oauth-toolkit) | adopted | hand-rolled HMAC/base64 removed; `hmac` clonable MAC state = midstate-reuse lever (P3) |
+| `errcode` (http-error successor) | rejected | maps Validation to 422; SPEC mandates 400 with exact challenge strings (exact bytes win) |
+| `audiobook-conformance` | pattern adopted | corpus + independent-reference + disagreement-report structure for `tests/query_oracle.rs` |
+| `wire-kit`, `dbc-parse` | discipline adopted | bounds-checked, total, zero-dep, `no_std` decode style |
+| `shm-rings` | pattern adopted | THREAT-MODEL treatment for the inherent-unsafe mmap surface (`MappedFile`) |
+| `blobkit` | pattern adopted | CLAIMS.md + PERF-SLO format for every landed lever; io_uring bench harness shape |
+| `app-error` (error-classify) | candidate | recovery classification maps to the degradation ladder; revisit at handlers stage |
+| `feedkit` | rejected | OSINT feed adapters (argus), not a feed server; name-only overlap |
+| `json-envelope` | rejected | SPEC fixes exact response shapes; no envelope allowed |
+| `cachekit` | rejected | challenge rule 5 forbids exactly this |
+| `latent-oracle` | rejected | chess research engine; name coincidence |

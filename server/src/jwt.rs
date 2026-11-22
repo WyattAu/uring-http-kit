@@ -15,7 +15,12 @@
 //! per request). Kept simple+correct now; swap to midstate reuse with the
 //! io_uring pass work.
 
-use sha2::{Digest, Sha256};
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use base64::Engine as _;
+use hmac::{Hmac, Mac};
+use sha2::Sha256;
+
+type HmacSha256 = Hmac<Sha256>;
 
 /// Verification outcome; each variant maps 1:1 to a SPEC error row.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -37,42 +42,14 @@ pub struct Claims {
 }
 
 /// Base64url decode, unpadded or padded tolerated, garbage rejected.
+/// Padding is stripped before `URL_SAFE_NO_PAD` decoding (JWTs omit it;
+/// some generators keep it). Allocation is bounded by token length.
 pub fn base64url_decode(input: &[u8]) -> Option<Vec<u8>> {
-    fn val(b: u8) -> Option<u32> {
-        match b {
-            b'A'..=b'Z' => Some((b - b'A') as u32),
-            b'a'..=b'z' => Some((b - b'a' + 26) as u32),
-            b'0'..=b'9' => Some((b - b'0' + 52) as u32),
-            b'-' => Some(62),
-            b'_' => Some(63),
-            b'=' => Some(0),
-            _ => None,
-        }
-    }
-    let cleaned: Vec<u8> = input.iter().copied().filter(|&b| b != b'=').collect();
-    let mut out = Vec::with_capacity(cleaned.len() * 3 / 4);
-    for chunk in cleaned.chunks(4) {
-        match chunk.len() {
-            4 => {
-                let n = (val(chunk[0])? << 18) | (val(chunk[1])? << 16)
-                    | (val(chunk[2])? << 14) | (val(chunk[3])? << 12);
-                out.push((n >> 16) as u8);
-                out.push((n >> 8) as u8);
-                out.push(n as u8);
-            }
-            3 => {
-                let n = (val(chunk[0])? << 18) | (val(chunk[1])? << 16)
-                    | (val(chunk[2])? << 14);
-                out.push((n >> 16) as u8);
-                out.push((n >> 8) as u8);
-            }
-            2 => {
-                let n = (val(chunk[0])? << 18) | (val(chunk[1])? << 16);
-                out.push((n >> 16) as u8);
-            }
-            _ => return None, // 1 leftover byte is malformed
-        }
-    }
+    let end = input.iter().rposition(|&b| b != b'=').map_or(0, |p| p + 1);
+    let cleaned = &input[..end];
+    let mut out = vec![0u8; cleaned.len() / 4 * 3 + 3];
+    let written = URL_SAFE_NO_PAD.decode_slice(cleaned, &mut out).ok()?;
+    out.truncate(written);
     Some(out)
 }
 
@@ -84,32 +61,39 @@ fn ct_eq(a: &[u8], b: &[u8]) -> bool {
     a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
 }
 
-/// HMAC-SHA256 over `data` with `key` (RFC 2104).
+/// HMAC-SHA256 over `data` with `key` (RFC 2104, via the estate-standard
+/// `hmac` + `sha2` crates; lineage: oauth-toolkit/src/crypto.rs uses the same).
 pub fn hmac_sha256(key: &[u8], data: &[u8]) -> [u8; 32] {
-    const BLOCK: usize = 64;
-    let mut k = [0u8; BLOCK];
-    let key_material: &[u8] = if key.len() > BLOCK {
-        let h = Sha256::digest(key);
-        k[..32].copy_from_slice(&h);
-        &k
-    } else {
-        k[..key.len()].copy_from_slice(key);
-        &k
-    };
-    let mut ipad = [0x36u8; BLOCK];
-    let mut opad = [0x5cu8; BLOCK];
-    for i in 0..BLOCK {
-        ipad[i] ^= key_material[i];
-        opad[i] ^= key_material[i];
+    let mut mac = <HmacSha256 as Mac>::new_from_slice(key)
+        .expect("HMAC accepts every key length per RFC 2104; startup-validated secret");
+    mac.update(data);
+    mac.finalize().into_bytes().into()
+}
+
+/// Startup-time key schedule: a clonable MAC whose inner state is already
+/// keyed, so per-request cost is clone + update + finalize (P3 lever: the
+/// key schedule compression is paid once, not per request).
+#[derive(Clone)]
+pub struct KeyedMac(HmacSha256);
+
+impl KeyedMac {
+    /// `secret` is the fixed `JWT_SECRET` validated at startup.
+    pub fn new(secret: &[u8]) -> Self {
+        let mac = <HmacSha256 as Mac>::new_from_slice(secret)
+            .expect("HMAC accepts every key length; startup constant");
+        KeyedMac(mac)
     }
-    let mut inner = Sha256::new();
-    inner.update(&ipad);
-    inner.update(data);
-    let inner_digest = inner.finalize();
-    let mut outer = Sha256::new();
-    outer.update(&opad);
-    outer.update(inner_digest);
-    outer.finalize().into()
+
+    pub fn sign(&self, data: &[u8]) -> [u8; 32] {
+        let mut mac = self.0.clone();
+        mac.update(data);
+        mac.finalize().into_bytes().into()
+    }
+
+    /// Constant-time verify.
+    pub fn verify(&self, data: &[u8], sig: &[u8; 32]) -> bool {
+        ct_eq(&self.sign(data), sig)
+    }
 }
 
 /// Extract a string value for `key` from a small JSON object (flat, SPEC
