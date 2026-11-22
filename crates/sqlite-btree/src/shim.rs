@@ -64,15 +64,15 @@ extern "C" {
     /// Position at the first entry. `*res == 1` means table/index empty.
     pub fn sqlite3BtreeFirst(cur: *mut BtCursor, res: *mut i32) -> i32;
     /// Advance. `flags` bit 1 = do not swap pages for small moves.
-    /// `*res == 1` means EOF.
-    pub fn sqlite3BtreeNext(cur: *mut BtCursor, flags: i32, res: *mut i32) -> i32;
+    /// Returns an SQLite result code; EOF state is polled via `sqlite3BtreeEof`.
+    pub fn sqlite3BtreeNext(cur: *mut BtCursor, flags: i32) -> i32;
     pub fn sqlite3BtreeEof(cur: *mut BtCursor) -> i32;
     /// Rowid of the current table-cursor entry.
     pub fn sqlite3BtreeIntegerKey(cur: *mut BtCursor) -> i64_t;
     /// Record payload size of the current entry (table or index).
     pub fn sqlite3BtreePayloadSize(cur: *mut BtCursor) -> u32;
     /// Read `amt` payload bytes at `offset` into `dest`.
-    pub fn sqlite3BtreePayload(cur: *mut BtCursor, dest: *mut u8, offset: i32, amt: i32) -> i32;
+    pub fn sqlite3BtreePayload(cur: *mut BtCursor, offset: u32, amt: u32, dest: *mut u8) -> i32;
 }
 
 /// Opaque unpacked record used by `sqlite3BtreeIndexMoveto`. The shim builds
