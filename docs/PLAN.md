@@ -60,3 +60,26 @@ Every optimization lands with an A/B measurement on `load-calib.js` at matched c
 - upstream contributions owed: `SEND_ZC` in uring-kit (if it wins), `decode_hs256_raw` in
   oauth-toolkit
 - estate.yml registration + OmniRust-template docs-gate alignment at release
+
+
+## G5 baseline (2026-11-22, confined release measurements)
+
+Protocol: server pinned core 2, k6 confined cores 3-5, load-calib.js
+(THINK_SCALE demand staircase), CPU% from /proc utime+stime deltas.
+
+| Server | Points (rate @ CPU%) | Marginal per-request cost |
+|---|---|---|
+| kensac (incumbent, rank 1) | 4.9k @ 9.4% / 7.6k @ 9.4% (scale 3/30) | **12.3 us/req** |
+| ours (release, pre-levers) | 5.1k @ 66.2% / 6.4k @ 80.7% | **11.2-13.0 us/req** |
+
+Verdict: PARITY with the incumbent before levers. Projection as-is:
+~300-340k users. Lever budget to win: -1 to -4 us/req (E06 scatter-gather
+send, E05 specialized decoders, SHA-NI HMAC, PGO) -> 355-430k projected.
+
+Rig limit: confined k6 (3 cores) saturates ~6.4k req/s; server capacity
+beyond that is unmeasurable locally -> absolute number needs arjay's box
+(PR #547 in the batch queue) or a second load generator.
+
+Gotchas recorded: NEVER measure a debug build (5-20x skew, caught 2026-11-22);
+confined p95/p99 are client-artifact-dominated (kensac showed 700ms-1s too);
+THINK_SCALE requires /tmp/opencode/calib/load-calib.js not bench/load.js.
