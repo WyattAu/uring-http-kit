@@ -35,6 +35,7 @@ use crate::store::Store;
 
 const RECV_BUF_SIZE: usize = 2048;
 const RING_ENTRIES: u32 = 4096;
+const POOL_CAPACITY: usize = 16_384; // max concurrent connections (F55 budget)
 /// hard cap on request head+body bytes (SPEC bodies <= 500 chars)
 const MAX_REQUEST: usize = 64 * 1024;
 /// pipelined requests drained per read burst
@@ -78,6 +79,8 @@ pub struct Server {
     listener: std::net::TcpListener,
     accept_fd: RawFd,
     conns: HashMap<RawFd, Conn>,
+    /// generation -> fd (one live conn per generation)
+    gen_conn: HashMap<u16, RawFd>,
     queue: Vec<Queued>,
     now_ms: u64,
 }
@@ -101,6 +104,7 @@ impl Server {
             listener,
             accept_fd,
             conns: HashMap::new(),
+            gen_conn: HashMap::new(),
             queue: Vec::new(),
             now_ms: 0,
         })
@@ -140,7 +144,6 @@ impl Server {
                 // the engine re-arms the listener itself (drain path)
             }
             Op::Read => {
-                let slot = cqe.token.slot();
                 let generation = cqe.token.generation();
                 let n = match cqe.result {
                     Ok(n) => n as usize,
@@ -149,7 +152,7 @@ impl Server {
                         return;
                     }
                 };
-                let Some(&fd) = self.slot_conn.get(&slot) else {
+                let Some(&fd) = self.gen_conn.get(&generation) else {
                     return;
                 };
                 if n == 0 {
@@ -157,7 +160,14 @@ impl Server {
                     self.close_conn(generation);
                     return;
                 }
-                let bytes = self.pool_slot_bytes(slot, n).to_vec();
+                let bytes: &[u8] = {
+                    let conn = match self.conns.get(&fd) {
+                        Some(c) if c.generation == generation => c,
+                        _ => return,
+                    };
+                    &conn.recv_buf[..n.min(conn.recv_buf.len())]
+                };
+                let bytes = bytes.to_vec();
                 let conn = match self.conns.get_mut(&fd) {
                     Some(c) if c.generation == generation => c,
                     _ => return,
@@ -173,7 +183,7 @@ impl Server {
                     return;
                 }
                 // response sent: pop the outbox front; send next or re-arm read
-                
+                let Some(&fd) = self.gen_conn.get(&generation) else { return };
                 let Some(conn) = self.conns.get_mut(&fd) else { return };
                 if conn.generation != generation {
                     return;
@@ -340,10 +350,14 @@ impl Server {
         }
     }
 
+    /// Raw recv-buffer pointer for the in-flight read. SAFETY (uring-kit
+    /// contract): the buffer is a fixed-capacity Vec that is never resized,
+    /// its address is stable for the connection's lifetime, and the kernel
+    /// writes only between the read submission and its CQE on this thread.
     fn recv_ptr(&self, fd: RawFd) -> *mut libc::c_void {
         self.conns
             .get(&fd)
-            .map(|c| c.recv_buf.as_mut_ptr() as *mut libc::c_void)
+            .map(|c| c.recv_buf.as_ptr() as *mut libc::c_void)
             .unwrap_or(std::ptr::null_mut())
     }
 
@@ -357,49 +371,43 @@ impl Server {
             iov_base: front.as_ptr() as *mut libc::c_void,
             iov_len: front.len(),
         }]);
-        let token = Token::new(Op::Write, slot, generation, 0);
         let _ = conn; // borrow ends here; iov points at outbox-owned memory
+        let token = Token::new(Op::Write, 0, generation, 0);
         if self.engine.write_vectored(token, fd, iov).is_err() {
             self.close_conn(generation);
         }
     }
 
     fn admit(&mut self, fd: RawFd) {
-        if std::env::var_os("LOOP_DEBUG").is_some() {
-            eprintln!("admit fd {fd}");
-        }
-        let Some(slot) = self.pool.take() else {
-            // slot budget exhausted (F55): close; k6 reconnects
+        if self.conns.len() >= POOL_CAPACITY {
+            // connection budget exhausted (F55): close; k6 reconnects
             unsafe { libc::close(fd) };
             return;
-        };
+        }
         self.engine
-            .add_stream(fd, Token::new(Op::Read, slot, 0, 0));
+            .add_stream(fd, Token::new(Op::Read, 0, 0, 0));
+        let generation = 0;
         self.conns.insert(
             fd,
             Conn {
-                slot,
-                generation: 0,
+                fd,
+                generation,
+                recv_buf: vec![0u8; RECV_BUF_SIZE],
                 buf: Vec::new(),
                 consumed: 0,
                 outbox: VecDeque::new(),
                 last_active: self.now_ms,
             },
         );
-        self.slot_conn.insert(slot, fd);
-        self.submit_read(fd, slot, 0);
+        self.gen_conn.insert(generation, fd);
+        self.submit_read(fd, generation);
     }
 
-    fn close_conn(&mut self, slot: u32, generation: u16) {
-        
-        match self.conns.get(&fd) {
-            Some(c) if c.generation == generation => {}
-            _ => return,
-        }
+    fn close_conn(&mut self, generation: u16) {
+        let Some(&fd) = self.gen_conn.get(&generation) else { return };
         self.conns.remove(&fd);
-        self.slot_conn.remove(&slot);
-        self.pool.release(slot);
-        let token = Token::new(Op::Close, slot, generation, 0);
+        self.gen_conn.remove(&generation);
+        let token = Token::new(Op::Close, 0, generation, 0);
         let _ = self.engine.close(token, fd);
     }
 
@@ -624,11 +632,10 @@ impl Server {
             .collect();
         for fd in stale {
             if let Some(c) = self.conns.remove(&fd) {
-                self.slot_conn.remove(&c.slot);
-                self.pool.release(c.slot);
+                self.gen_conn.remove(&c.generation);
                 let _ = self
                     .engine
-                    .close(Token::new(Op::Close, c.slot, c.generation, 0), fd);
+                    .close(Token::new(Op::Close, 0, c.generation, 0), fd);
             }
         }
     }
