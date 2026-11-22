@@ -81,6 +81,9 @@ pub struct Server {
     conns: HashMap<RawFd, Conn>,
     /// generation -> fd (one live conn per generation)
     gen_conn: HashMap<u16, RawFd>,
+    /// closed conns awaiting their close(2) CQE; buffers stay alive so an
+    /// in-flight kernel write/read can never touch freed memory
+    graveyard: Vec<(Token, Conn)>,
     queue: Vec<Queued>,
     now_ms: u64,
 }
@@ -105,6 +108,7 @@ impl Server {
             accept_fd,
             conns: HashMap::new(),
             gen_conn: HashMap::new(),
+            graveyard: Vec::new(),
             queue: Vec::new(),
             now_ms: 0,
         })
@@ -195,7 +199,17 @@ impl Server {
                     self.submit_read(fd, generation);
                 }
             }
-            Op::Close | Op::Connect | Op::Splice => {}
+            Op::Close => {
+                // close(2) landed: free the graveyard entry now
+                if let Some(pos) = self
+                    .graveyard
+                    .iter()
+                    .position(|(t, _)| *t == cqe.token)
+                {
+                    self.graveyard.swap_remove(pos);
+                }
+            }
+            Op::Connect | Op::Splice => {}
         }
     }
 
@@ -405,9 +419,14 @@ impl Server {
 
     fn close_conn(&mut self, generation: u16) {
         let Some(&fd) = self.gen_conn.get(&generation) else { return };
-        self.conns.remove(&fd);
+        let Some(conn) = self.conns.remove(&fd) else { return };
         self.gen_conn.remove(&generation);
+        // DEFERRED FREE: the conn (and its recv_buf) stays alive in the
+        // graveyard until the close CQE lands; any in-flight kernel op on
+        // this fd then completes into memory we still own, or fails EBADF
+        // if close(2) executed first. Either way: no use-after-free.
         let token = Token::new(Op::Close, 0, generation, 0);
+        self.graveyard.push((token, conn));
         let _ = self.engine.close(token, fd);
     }
 
@@ -633,9 +652,10 @@ impl Server {
         for fd in stale {
             if let Some(c) = self.conns.remove(&fd) {
                 self.gen_conn.remove(&c.generation);
-                let _ = self
-                    .engine
-                    .close(Token::new(Op::Close, 0, c.generation, 0), fd);
+                // DEFERRED FREE: keep the conn alive until the close CQE
+                let token = Token::new(Op::Close, 0, c.generation, 0);
+                self.graveyard.push((token, c));
+                let _ = self.engine.close(token, fd);
             }
         }
     }
