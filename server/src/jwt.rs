@@ -1,6 +1,6 @@
 //! JWT HS256 verification, per SPEC.md:
 //!
-//! - `Authorization: Bearer <jwt>` — missing header or wrong prefix →
+//! - `Authorization: Bearer <jwt>` ;  missing header or wrong prefix →
 //!   `missing bearer token` (401)
 //! - bad signature, expired, not HS256, malformed → `invalid or expired token`
 //! - valid signature but `sub` not a positive-integer string or `username`
@@ -98,7 +98,7 @@ impl KeyedMac {
 
 /// Extract a string value for `key` from a small JSON object (flat, SPEC
 /// payload shape). Returns the byte view of the value (inside quotes for
-/// strings; raw token bytes for numbers — caller disambiguates).
+/// strings; raw token bytes for numbers ;  caller disambiguates).
 /// Totality: arbitrary bytes → `None` or a valid view, never panic.
 fn json_member<'a>(obj: &'a [u8], key: &[u8]) -> Option<&'a [u8]> {
     let mut i = 0;
