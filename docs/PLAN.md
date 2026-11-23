@@ -158,3 +158,22 @@ The gap decomposes into (code-audit, next session):
 All five are mechanical eliminations against the documented zero-copy
 discipline. Target: match kensac's ~12 us/req, then the levers (E05/E06/
 SHA-NI) push past it. The leaderboard position updates with each PR push.
+
+## Elimination-list A/B (2026-11-23)
+
+5-point list landed (182afe2) with two gate-caught fixes (75afea4 range
+panic; b8ee2b0 route-error close). 42/42 green. Paired ladder vs kensac
+running in a quiet window; result appended when AB_NOW_DONE lands.
+
+
+## Elimination-list A/B (2026-11-23) — RESULTS
+
+Within-window adjacent pair (old->kensac->new, one window): old 7202/s,
+NEW 8145/s = +13% throughput from the 5-point list (new ran under
+equal-or-worse box conditions; lower bound). Gate: 42/42.
+
+kensac relative numbers INVALID this session: kensac itself swung
+14751/s -> 8208/s between windows (page-ins under memory pressure;
+vmstat si=416 during arms). Protocol hardened: quiet gate now requires
+si/so == 0 for 30s + no external process > 50% CPU + per-arm MHz log;
+adjacent-arm deltas only, never cross-window.
