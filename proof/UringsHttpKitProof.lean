@@ -37,13 +37,14 @@ def decodeSpec : Nat → List Nat → Nat → Option (Nat × Nat)
 def decode (buf : List Nat) : Option (Nat × Nat) :=
   decodeSpec 9 buf 0
 
-/- Proof targets 2 and 3 (consumption <= 9 bytes; consumed <= buffer
-   length) are OPEN LEAN TARGETS: proving them requires a
-   manual match-reduction pass on decodeSpec's well-founded equation lemmas
-   (hint: rw [decodeSpec.eq_def] + split). The properties are enforced
-   EMPIRICALLY and TOTALLY by tests/varint_oracle.rs: the proptest drives
-   every u64 encoding (all 1..9-byte shapes) plus arbitrary byte slices
-   through the decoder, asserting totality + the <= 9 bound everywhere. -/
+/- Proof targets 2 and 3 are PROVED below (consumed_le, consumed_le_len):
+   structural induction on fuel — the `fuel + 2` arm calls `fuel + 1`, so
+   plain `succ` induction suffices. The recorded blocker (equation-lemma
+   discriminant shape `f + 1 + 1` vs goal shape `fuel + 2`) dissolves by
+   NOT rewriting: after `induction` + `cases`, the goal already carries the
+   `g + 1 + 1` shape the equations are keyed on, and `simp [decodeSpec]`
+   fires directly. Target 4 (value bound < 2^64) remains the open target,
+   enforced empirically by tests/varint_oracle.rs. -/
 
 /-- Proof target 1 (totality): `decode` is total by structural recursion. -/
 theorem decode_terminates (buf : List Nat) :
@@ -52,5 +53,87 @@ theorem decode_terminates (buf : List Nat) :
 /- Proof target 4 (value bound: decoded value < 2 ^ 64) is an OPEN target
    tracked in the ledger; enforced empirically by the proptest round-trip
    over all u64 (tests/varint_oracle.rs). -/
+
+
+/- Proof targets 2 and 3: consumption bounds, by induction on `fuel`.
+   The recursion pattern `fuel + 2` calls `fuel + 1`: exactly one step
+   down, so structural induction suffices. The equation lemmas are keyed
+   on `f + 1 + 1`-shaped discriminants — which is exactly the shape the
+   goal carries after `succ`/`cases` splitting, so `simp [decodeSpec]`
+   fires without any arithmetic rewriting. -/
+theorem consumed_le : ∀ (fuel : Nat) (buf : List Nat) (acc : Nat) (v n : Nat),
+    decodeSpec fuel buf acc = some (v, n) → n ≤ fuel := by
+  intro fuel
+  induction fuel with
+  | zero =>
+    intro buf acc v n h
+    cases buf with
+    | nil => simp [decodeSpec] at h
+    | cons b rest => simp [decodeSpec] at h
+  | succ f ih =>
+    intro buf acc v n h
+    cases buf with
+    | nil => simp [decodeSpec] at h
+    | cons b rest =>
+      cases f with
+      | zero =>
+        -- fuel = 1: the 9th-byte arm consumes exactly 1
+        simp [decodeSpec] at h
+        omega
+      | succ g =>
+        -- fuel = g+2: the general arm (7-bit group; b < 128 terminates)
+        simp [decodeSpec] at h
+        split at h
+        · simp at h; omega
+        · cases hdec : decodeSpec (g + 1) rest (step7 acc b) with
+          | none => rw [hdec] at h; simp at h
+          | some q =>
+            obtain ⟨v', n'⟩ := q
+            rw [hdec] at h
+            simp at h
+            have hle := ih rest (step7 acc b) v' n' hdec
+            omega
+
+/-- Target 3: consumed bytes never exceed the buffer length. -/
+theorem consumed_le_len : ∀ (fuel : Nat) (buf : List Nat) (acc : Nat) (v n : Nat),
+    decodeSpec fuel buf acc = some (v, n) → n ≤ buf.length := by
+  intro fuel
+  induction fuel with
+  | zero =>
+    intro buf acc v n h
+    cases buf with
+    | nil => simp [decodeSpec] at h
+    | cons b rest => simp [decodeSpec] at h
+  | succ f ih =>
+    intro buf acc v n h
+    cases buf with
+    | nil => simp [decodeSpec] at h
+    | cons b rest =>
+      cases f with
+      | zero =>
+        simp [decodeSpec] at h
+        simp only [List.length_cons]
+        omega
+      | succ g =>
+        simp [decodeSpec] at h
+        split at h
+        · simp at h
+          simp only [List.length_cons]
+          omega
+        · cases hdec : decodeSpec (g + 1) rest (step7 acc b) with
+          | none => rw [hdec] at h; simp at h
+          | some q =>
+            obtain ⟨v', n'⟩ := q
+            rw [hdec] at h
+            simp at h
+            have hle := ih rest (step7 acc b) v' n' hdec
+            simp only [List.length_cons]
+            omega
+
+/-- Corollary: the Rust decoder (fuel starts at 9) consumes at most 9
+    bytes and never reads past the buffer. -/
+theorem decode_bounds (buf : List Nat) (v n : Nat)
+    (h : decode buf = some (v, n)) : n ≤ 9 ∧ n ≤ buf.length :=
+  ⟨consumed_le 9 buf 0 v n h, consumed_le_len 9 buf 0 v n h⟩
 
 end UringsHttpKitProof.Varint

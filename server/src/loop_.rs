@@ -233,8 +233,13 @@ impl Server {
                 Drained,
                 /// head+body incomplete: re-arm read
                 NeedMore,
-                /// SPEC error row + close
+                /// malformed head or oversize: respond + close (the byte
+                /// stream is unusable; keep-alive cannot resync)
                 Fatal((u16, &'static str)),
+                /// SPEC error row (404/400/401): respond and KEEP the
+                /// connection — the stream stays parseable; carries the
+                /// request end offset to advance `consumed` past it
+                RouteErr((u16, &'static str), usize),
                 /// complete validated request; `total` = request end offset
                 Ready { total: usize, kind: QueuedKind },
             }
@@ -264,7 +269,10 @@ impl Server {
                                     &mut self.scratch,
                                 ) {
                                     Ok(kind) => Outcome::Ready { total, kind },
-                                    Err(err) => Outcome::Fatal(err),
+                                    // SPEC error row: queued, conn kept
+                                    // (the gate catch: Fatal closed the
+                                    // conn before the row flushed -> 000)
+                                    Err(err) => Outcome::RouteErr(err, total),
                                 }
                             }
                         }
@@ -291,6 +299,21 @@ impl Server {
                 }
                 Outcome::NeedMore => {
                     self.submit_read(fd, generation);
+                    return;
+                }
+                Outcome::RouteErr(err, total) => {
+                    // respond with the SPEC row and keep the connection:
+                    // work_pass flushes it; advance past the complete
+                    // request so the keep-alive stream stays in sync
+                    // (old enqueue semantics)
+                    self.queue_error(fd, generation, err);
+                    if let Some(conn) = self.conns.get_mut(&fd) {
+                        conn.consumed = total;
+                        if conn.consumed > 32 * 1024 {
+                            conn.buf.drain(..conn.consumed);
+                            conn.consumed = 0;
+                        }
+                    }
                     return;
                 }
                 Outcome::Fatal(err) => {
