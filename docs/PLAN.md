@@ -107,3 +107,27 @@ both arms 2-3x vs their ab2 runs. Paired ratios ours/kensac: 0.73, 0.61, 0.39 â€
 no clean verdict possible. The ab2 dataset (quiet window) remains the reference.
 Rule: definitive A/Bs only in quiet windows (the ladder gate) or on the
 benchmark box itself.
+
+
+## DEFINITIVE paired baseline (2026-11-23, quiet window, both release builds)
+
+Same rig, same calib script, sequential arms, CPU% from /proc deltas:
+
+| Scale | ours (slot-free + fixes) | kensac | ours per-req | kensac per-req |
+|---|---|---|---|---|
+| 30 | 6,610 @ 78.5% | 10,023 @ 9.9% | ~11.9 us | ~9.9 us |
+| 60 | 6,911 @ 85.3% | 14,224 @ 13.3% | ~12.3 us | ~10.5 us |
+| 150 | 7,777 @ 90.8% | 16,614 @ 15.9% | ~11.7 us | ~10.4 us |
+
+VERDICT: kensac is ~20% more efficient per request. Supersedes ALL prior
+estimates (the "parity" and "2x gap" figures were both artifacts of
+contaminated or mismatched rig states).
+
+The ~2 us/req gap decomposes (code-audit): per-request allocations (conn.buf
+drain-compaction, PostFull-style intermediates in the PostGet path, jwt
+Claims.username Vec), our bounds-checked page() dispatch vs their direct
+cursor+page pointers, and the absence of send-zc. The lever queue (E05/E06/
+SHA-NI + in-place consume) targets exactly these.
+
+Ship bar math: <= 11.2 us/req local -> 341k projection (rank 1 outright).
+With E06+E05 landing: 7-9 us/req -> 430-550k projection.
