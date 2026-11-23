@@ -131,3 +131,30 @@ SHA-NI + in-place consume) targets exactly these.
 
 Ship bar math: <= 11.2 us/req local -> 341k projection (rank 1 outright).
 With E06+E05 landing: 7-9 us/req -> 430-550k projection.
+
+
+## QUIET-WINDOW paired verdict (2026-11-23)
+
+Clean paired rounds in an open quiet window (load 3.3-5.7, no compilers),
+release builds, THINK_SCALE=60 staircase, 2 interleaved rounds:
+
+| Arm | rate |
+|---|---|
+| ours round 1 / round 2 | 6,556 / 5,734 req/s |
+| kensac round 1 / round 2 | 8,256 / 14,175 req/s |
+
+VERDICT: kensac holds a real ~2x throughput advantage on identical hardware.
+Not a rig artifact (quiet window, paired interleaving). The slot-free recv
+and emitter are correct (42/42) but the per-request pipeline carries ~2x the
+cost of kensac's arena design.
+
+The gap decomposes into (code-audit, next session):
+1. buf.clone() per parse iteration (the whole accumulated request buffer)
+2. PostFull intermediates in PostGet path (feed is fused; get is not)
+3. format!()-built response heads (per response)
+4. jwt Claims.username Vec allocation per authed request
+5. gen_conn HashMap lookup + bounds-check per page touch
+
+All five are mechanical eliminations against the documented zero-copy
+discipline. Target: match kensac's ~12 us/req, then the levers (E05/E06/
+SHA-NI) push past it. The leaderboard position updates with each PR push.
