@@ -601,6 +601,8 @@ impl Server {
 
         // snapshot advances AFTER commit for the next pass (ADR 0003)
         self.store.refresh_snapshot();
+        // pass arena retired: all queued ranges were consumed above
+        self.scratch.clear();
     }
 
     fn send_response(
@@ -767,6 +769,7 @@ fn memchr_find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
 /// Body extraction outcome for POST /posts (SPEC error rows map 1:1).
 /// The body bytes are written into the caller's scratch arena; the outcome
 /// carries the trimmed range (no per-request allocation).
+#[derive(Debug)]
 enum BodyExtract {
     /// no "body" key, or empty after trim -> `body is required`
     Missing,
@@ -811,9 +814,11 @@ fn body_field_into(raw_body: &[u8], scratch: &mut Vec<u8>) -> Result<BodyExtract
                             if t.is_empty() {
                                 return Ok(BodyExtract::Missing);
                             }
-                            let offset = (t.as_ptr() as usize)
+                            // t.as_ptr() - scratch.as_ptr() is ALREADY the
+                            // absolute offset (double-counting wstart was the
+                            // 1206>645 range panic the official gate caught)
+                            let start = (t.as_ptr() as usize)
                                 - (scratch.as_ptr() as usize);
-                            let start = wstart as usize + offset;
                             let end = start + t.len();
                             return Ok(BodyExtract::Body((start as u32, end as u32)));
                         }
@@ -879,4 +884,45 @@ fn now_ms() -> u64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0)
+}
+
+#[cfg(test)]
+mod scratch_tests {
+    use super::*;
+
+    /// Regression (official-gate catch, 2026-11-23): the trim-range
+    /// arithmetic double-counted `wstart`, so any body_field_into call on a
+    /// NON-EMPTY scratch produced a range past the end (panic "range start
+    /// index 1206 out of range for slice of length 645"). The first request
+    /// on an empty scratch masked it.
+    #[test]
+    fn body_field_range_valid_on_nonempty_scratch() {
+        let mut scratch = Vec::new();
+        // simulate a prior request's arena bytes
+        scratch.extend_from_slice(b"prior-bytes-from-request-one....");
+        let raw = br#"{"body":"   hello world   "}"#;
+        match body_field_into(raw, &mut scratch) {
+            Ok(BodyExtract::Body((s, e))) => {
+                let (s, e) = (s as usize, e as usize);
+                assert!(e <= scratch.len(), "range {s}..{e} past scratch len {}", scratch.len());
+                assert_eq!(&scratch[s..e], b"hello world");
+                // prior arena bytes untouched
+                assert_eq!(&scratch[..32], b"prior-bytes-from-request-one....");
+            }
+            other => panic!("expected ranged body, got {other:?}"),
+        }
+    }
+
+    /// Two sequential requests: ranges from both stay valid until clear.
+    #[test]
+    fn two_requests_share_arena() {
+        let mut scratch = Vec::new();
+        let r1 = body_field_into(br#"{"body":"first"}"#, &mut scratch).unwrap();
+        let r2 = body_field_into(br#"{"body":"second"}"#, &mut scratch).unwrap();
+        let (BodyExtract::Body((s1, e1)), BodyExtract::Body((s2, e2))) = (r1, r2) else {
+            panic!()
+        };
+        assert_eq!(&scratch[s1 as usize..e1 as usize], b"first");
+        assert_eq!(&scratch[s2 as usize..e2 as usize], b"second");
+    }
 }
