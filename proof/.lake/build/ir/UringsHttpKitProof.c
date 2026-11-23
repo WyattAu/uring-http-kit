@@ -24,6 +24,8 @@ LEAN_EXPORT lean_object* lp_urings__http__kit__proof_UringsHttpKitProof_Varint_s
 LEAN_EXPORT lean_object* lp_urings__http__kit__proof_UringsHttpKitProof_Varint_decodeSpec(lean_object*, lean_object*, lean_object*);
 LEAN_EXPORT lean_object* lp_urings__http__kit__proof_UringsHttpKitProof_Varint_decodeSpec___boxed(lean_object*, lean_object*, lean_object*);
 LEAN_EXPORT lean_object* lp_urings__http__kit__proof_UringsHttpKitProof_Varint_decode(lean_object*);
+LEAN_EXPORT lean_object* lp_urings__http__kit__proof___private_UringsHttpKitProof_0__UringsHttpKitProof_Varint_decodeSpec_match__1_splitter___redArg(lean_object*, lean_object*, lean_object*, lean_object*, lean_object*, lean_object*, lean_object*);
+LEAN_EXPORT lean_object* lp_urings__http__kit__proof___private_UringsHttpKitProof_0__UringsHttpKitProof_Varint_decodeSpec_match__1_splitter(lean_object*, lean_object*, lean_object*, lean_object*, lean_object*, lean_object*, lean_object*, lean_object*);
 LEAN_EXPORT lean_object* lp_urings__http__kit__proof_UringsHttpKitProof_Varint_step7(lean_object* v_acc_1_, lean_object* v_b_2_){
 _start:
 {
@@ -294,6 +296,128 @@ v___x_66_ = lean_unsigned_to_nat(9u);
 v___x_67_ = lean_unsigned_to_nat(0u);
 v___x_68_ = lp_urings__http__kit__proof_UringsHttpKitProof_Varint_decodeSpec(v___x_66_, v_buf_65_, v___x_67_);
 return v___x_68_;
+}
+}
+LEAN_EXPORT lean_object* lp_urings__http__kit__proof___private_UringsHttpKitProof_0__UringsHttpKitProof_Varint_decodeSpec_match__1_splitter___redArg(lean_object* v_x_69_, lean_object* v_x_70_, lean_object* v_x_71_, lean_object* v_h__1_72_, lean_object* v_h__2_73_, lean_object* v_h__3_74_, lean_object* v_h__4_75_){
+_start:
+{
+if (lean_obj_tag(v_x_70_) == 0)
+{
+lean_object* v___x_76_; 
+lean_dec(v_h__4_75_);
+lean_dec(v_h__3_74_);
+lean_dec(v_h__2_73_);
+v___x_76_ = lean_apply_2(v_h__1_72_, v_x_69_, v_x_71_);
+return v___x_76_;
+}
+else
+{
+lean_object* v_head_77_; lean_object* v_tail_78_; lean_object* v_zero_79_; uint8_t v_isZero_80_; 
+lean_dec(v_h__1_72_);
+v_head_77_ = lean_ctor_get(v_x_70_, 0);
+lean_inc(v_head_77_);
+v_tail_78_ = lean_ctor_get(v_x_70_, 1);
+lean_inc(v_tail_78_);
+lean_dec_ref_known(v_x_70_, 2);
+v_zero_79_ = lean_unsigned_to_nat(0u);
+v_isZero_80_ = lean_nat_dec_eq(v_x_69_, v_zero_79_);
+if (v_isZero_80_ == 1)
+{
+lean_object* v___x_81_; 
+lean_dec(v_h__4_75_);
+lean_dec(v_h__3_74_);
+lean_dec(v_x_69_);
+v___x_81_ = lean_apply_3(v_h__2_73_, v_head_77_, v_tail_78_, v_x_71_);
+return v___x_81_;
+}
+else
+{
+lean_object* v_one_82_; lean_object* v_n_83_; uint8_t v_isZero_84_; 
+lean_dec(v_h__2_73_);
+v_one_82_ = lean_unsigned_to_nat(1u);
+v_n_83_ = lean_nat_sub(v_x_69_, v_one_82_);
+lean_dec(v_x_69_);
+v_isZero_84_ = lean_nat_dec_eq(v_n_83_, v_zero_79_);
+if (v_isZero_84_ == 1)
+{
+lean_object* v___x_85_; 
+lean_dec(v_n_83_);
+lean_dec(v_h__4_75_);
+v___x_85_ = lean_apply_3(v_h__3_74_, v_head_77_, v_tail_78_, v_x_71_);
+return v___x_85_;
+}
+else
+{
+lean_object* v_n_86_; lean_object* v___x_87_; 
+lean_dec(v_h__3_74_);
+v_n_86_ = lean_nat_sub(v_n_83_, v_one_82_);
+lean_dec(v_n_83_);
+v___x_87_ = lean_apply_4(v_h__4_75_, v_n_86_, v_head_77_, v_tail_78_, v_x_71_);
+return v___x_87_;
+}
+}
+}
+}
+}
+LEAN_EXPORT lean_object* lp_urings__http__kit__proof___private_UringsHttpKitProof_0__UringsHttpKitProof_Varint_decodeSpec_match__1_splitter(lean_object* v_motive_88_, lean_object* v_x_89_, lean_object* v_x_90_, lean_object* v_x_91_, lean_object* v_h__1_92_, lean_object* v_h__2_93_, lean_object* v_h__3_94_, lean_object* v_h__4_95_){
+_start:
+{
+if (lean_obj_tag(v_x_90_) == 0)
+{
+lean_object* v___x_96_; 
+lean_dec(v_h__4_95_);
+lean_dec(v_h__3_94_);
+lean_dec(v_h__2_93_);
+v___x_96_ = lean_apply_2(v_h__1_92_, v_x_89_, v_x_91_);
+return v___x_96_;
+}
+else
+{
+lean_object* v_head_97_; lean_object* v_tail_98_; lean_object* v_zero_99_; uint8_t v_isZero_100_; 
+lean_dec(v_h__1_92_);
+v_head_97_ = lean_ctor_get(v_x_90_, 0);
+lean_inc(v_head_97_);
+v_tail_98_ = lean_ctor_get(v_x_90_, 1);
+lean_inc(v_tail_98_);
+lean_dec_ref_known(v_x_90_, 2);
+v_zero_99_ = lean_unsigned_to_nat(0u);
+v_isZero_100_ = lean_nat_dec_eq(v_x_89_, v_zero_99_);
+if (v_isZero_100_ == 1)
+{
+lean_object* v___x_101_; 
+lean_dec(v_h__4_95_);
+lean_dec(v_h__3_94_);
+lean_dec(v_x_89_);
+v___x_101_ = lean_apply_3(v_h__2_93_, v_head_97_, v_tail_98_, v_x_91_);
+return v___x_101_;
+}
+else
+{
+lean_object* v_one_102_; lean_object* v_n_103_; uint8_t v_isZero_104_; 
+lean_dec(v_h__2_93_);
+v_one_102_ = lean_unsigned_to_nat(1u);
+v_n_103_ = lean_nat_sub(v_x_89_, v_one_102_);
+lean_dec(v_x_89_);
+v_isZero_104_ = lean_nat_dec_eq(v_n_103_, v_zero_99_);
+if (v_isZero_104_ == 1)
+{
+lean_object* v___x_105_; 
+lean_dec(v_n_103_);
+lean_dec(v_h__4_95_);
+v___x_105_ = lean_apply_3(v_h__3_94_, v_head_97_, v_tail_98_, v_x_91_);
+return v___x_105_;
+}
+else
+{
+lean_object* v_n_106_; lean_object* v___x_107_; 
+lean_dec(v_h__3_94_);
+v_n_106_ = lean_nat_sub(v_n_103_, v_one_102_);
+lean_dec(v_n_103_);
+v___x_107_ = lean_apply_4(v_h__4_95_, v_n_106_, v_head_97_, v_tail_98_, v_x_91_);
+return v___x_107_;
+}
+}
+}
 }
 }
 lean_object* initialize_Init(uint8_t builtin);

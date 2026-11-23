@@ -1,10 +1,10 @@
 {"synthetic": false,
  "schemaVersion": "2025-09-10",
  "outputs":
- {"o": ["dbd72badacb8261f.olean"],
+ {"o": ["3d8b539941423e5d.olean"],
   "m": false,
-  "i": "b2113c721ff08d7b.ilean",
-  "c": "ced8ed995c4d75f9.c"},
+  "i": "b085c798fae9b219.ilean",
+  "c": "57c4a2b3d4fc8bfd.c"},
  "log":
  [{"message":
    ".> LEAN_PATH=/home/wyatt/dev/src/github.com/WyattAu/uring-http-kit/proof/.lake/build/lib/lean /home/wyatt/.elan/toolchains/leanprover--lean4---v4.36.0/bin/lean /home/wyatt/dev/src/github.com/WyattAu/uring-http-kit/proof/UringsHttpKitProof.lean -o /home/wyatt/dev/src/github.com/WyattAu/uring-http-kit/proof/.lake/build/lib/lean/UringsHttpKitProof.olean -i /home/wyatt/dev/src/github.com/WyattAu/uring-http-kit/proof/.lake/build/lib/lean/UringsHttpKitProof.ilean -c /home/wyatt/dev/src/github.com/WyattAu/uring-http-kit/proof/.lake/build/ir/UringsHttpKitProof.c --setup /home/wyatt/dev/src/github.com/WyattAu/uring-http-kit/proof/.lake/build/ir/UringsHttpKitProof.setup.json --json",
@@ -25,10 +25,10 @@
   ["Lean 4.36.0, commit 611c117bfaf7b7ae1cfcf246ce6fba31e8f509e9",
    "bd5dd4b1191d6a49"],
   ["/home/wyatt/dev/src/github.com/WyattAu/uring-http-kit/proof/UringsHttpKitProof.lean",
-   "e9edc33dd5399ead"],
+   "5a57a1040dd963ef"],
   ["options", "00000000000006bb"],
   ["isModule: false", "feefd2a0d3a1847e"],
   ["Module.name: UringsHttpKitProof", "811aeb93360ed6b3"],
   ["Package.id?: (some urings_http_kit_proof)", "9cb9486de512d437"],
   ["Module.leanArgs: #[]", "00000000000006bb"]],
- "depHash": "d13948dedbfb8f65"}
+ "depHash": "241b8f0e001df6d1"}
