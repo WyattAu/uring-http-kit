@@ -1,9 +1,9 @@
 {"synthetic": false,
  "schemaVersion": "2025-09-10",
  "outputs":
- {"o": ["3d8b539941423e5d.olean"],
+ {"o": ["b3b3badc4289600e.olean"],
   "m": false,
-  "i": "b085c798fae9b219.ilean",
+  "i": "9ab2e2fe3d8b5b2f.ilean",
   "c": "57c4a2b3d4fc8bfd.c"},
  "log":
  [{"message":
@@ -25,10 +25,10 @@
   ["Lean 4.36.0, commit 611c117bfaf7b7ae1cfcf246ce6fba31e8f509e9",
    "bd5dd4b1191d6a49"],
   ["/home/wyatt/dev/src/github.com/WyattAu/uring-http-kit/proof/UringsHttpKitProof.lean",
-   "5a57a1040dd963ef"],
+   "6cd00beaf6383fdc"],
   ["options", "00000000000006bb"],
   ["isModule: false", "feefd2a0d3a1847e"],
   ["Module.name: UringsHttpKitProof", "811aeb93360ed6b3"],
   ["Package.id?: (some urings_http_kit_proof)", "9cb9486de512d437"],
   ["Module.leanArgs: #[]", "00000000000006bb"]],
- "depHash": "241b8f0e001df6d1"}
+ "depHash": "a9fa360d09edc9d9"}
