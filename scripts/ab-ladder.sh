@@ -18,7 +18,7 @@ SRV=${CARGO_TARGET_DIR:-$HOME/.cache/cargo-target}/release/feed-server
 LOAD=$(cut -d' ' -f1 /proc/loadavg)
 S1=$(awk '/pswpin/{print $2}' /proc/vmstat); sleep 3
 S2=$(awk '/pswpin/{print $2}' /proc/vmstat)
-if (( $(echo "$LOAD > 6" | bc -l) )) || (( S2 > S1 )); then
+if (( ${LOAD%%.*} > 6 )) || (( S2 > S1 )); then
   echo "WINDOW CLOSED: load=$LOAD swap_delta=$((S2 - S1)) — rerun when quiet"
   exit 2
 fi
