@@ -676,7 +676,7 @@ dependencies = [
 [[package]]
 name = "uring-kit"
 version = "0.1.1"
-source = "git+https://github.com/WyattAu/uring-kit?rev=a811d22a1d4500d065e5e7d26402b430690165b7#a811d22a1d4500d065e5e7d26402b430690165b7"
+source = "git+https://github.com/WyattAu/uring-kit?rev=c62eab886ec7a782b23b6df30c567648df7fba0c#c62eab886ec7a782b23b6df30c567648df7fba0c"
 dependencies = [
  "io-uring",
  "libc",
