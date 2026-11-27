@@ -13,4 +13,9 @@ libc = "0.2"
 proptest = "1"
 memmap2 = "0.9"
 rusqlite = { version = "0.32", features = ["bundled"] }
-uring-kit = { git = "https://github.com/WyattAu/uring-kit", rev = "c62eab886ec7a782b23b6df30c567648df7fba0c" }
+uring-kit = { git = "https://github.com/WyattAu/uring-kit", rev = "0dcf59e9cde16300bf2a4852d0d93eceb8400996" }
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+panic = "abort"

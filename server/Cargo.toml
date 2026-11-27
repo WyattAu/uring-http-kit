@@ -17,3 +17,8 @@ rusqlite = { workspace = true, features = ["bundled"] }
 uring-kit.workspace = true
 hmac = "0.12"
 base64 = "0.22"
+mimalloc = { version = "0.1", optional = true }
+
+[features]
+# allocator A/B (C10): cargo build --release --features mimalloc
+mimalloc = ["dep:mimalloc"]

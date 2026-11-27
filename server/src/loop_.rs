@@ -116,11 +116,13 @@ impl Server {
     pub fn new(cfg: Config) -> Result<Self, String> {
         let store = Store::open(&cfg.sqlite_path, &cfg.jwt_secret)?;
         // A/B levers from env (SPEC keeps config env-only):
-        // URING_SQPOLL=1, URING_COOP=1, URING_ISSUER=1
+        // URING_SQPOLL=1, URING_COOP=1, URING_ISSUER=1, URING_DEFER=1
+        let on = |k: &str| std::env::var(k).as_deref() == Ok("1");
         let flags = uring_kit::uring::UringFlags {
-            sqpoll: std::env::var("URING_SQPOLL").as_deref() == Ok("1"),
-            coop_taskrun: std::env::var("URING_COOP").as_deref() == Ok("1"),
-            single_issuer: std::env::var("URING_ISSUER").as_deref() == Ok("1"),
+            sqpoll: on("URING_SQPOLL"),
+            coop_taskrun: on("URING_COOP"),
+            single_issuer: on("URING_ISSUER"),
+            defer_taskrun: on("URING_DEFER"),
         };
         let engine =
             uring_kit::uring::UringEngine::new_with_flags(RING_ENTRIES, None, flags)
