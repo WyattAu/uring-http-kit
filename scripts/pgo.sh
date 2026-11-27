@@ -16,7 +16,7 @@ command -v k6 >/dev/null || { echo "k6 missing"; exit 1; }
 
 echo "== profile-generate build =="
 RUSTFLAGS="-Cprofile-generate=$PROF_DIR" cargo build --release -p feed-server
-SRV=target/release/server
+SRV=${CARGO_TARGET_DIR:-$HOME/.cache/cargo-target}/release/feed-server
 
 SQLITE_PATH="$DB" JWT_SECRET=calib-secret HOST=127.0.0.1 PORT=8080 taskset -c 2 "$SRV" &
 SRV_PID=$!
@@ -31,4 +31,4 @@ wait $SRV_PID 2>/dev/null || true
 echo "== merge + profile-use rebuild =="
 llvm-profdata merge -o "$PROF_DIR/pgo.profdata" "$PROF_DIR"/*.profraw
 RUSTFLAGS="-Cprofile-use=$PROF_DIR/pgo.profdata" cargo build --release -p feed-server
-echo "PGO binary at target/release/server (baseline binary kept at $CALIB/server-baseline)"
+echo "PGO binary at target/release/feed-server (baseline binary kept at $CALIB/server-baseline)"

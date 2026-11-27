@@ -11,7 +11,7 @@ OUT=$CALIB/ab-results
 mkdir -p "$OUT"
 [ -f "$DB" ] || { echo "seed DB missing at $DB"; exit 1; }
 command -v k6 >/dev/null || { echo "k6 missing"; exit 1; }
-SRV=~/dev/src/github.com/WyattAu/uring-http-kit/target/release/server
+SRV=${CARGO_TARGET_DIR:-$HOME/.cache/cargo-target}/release/feed-server
 [ -x "$SRV" ] || { echo "release server missing"; exit 1; }
 
 # quiet-window gate: load < 6 AND no swap delta over 3s
