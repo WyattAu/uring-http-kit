@@ -4,7 +4,7 @@
 # llvm-profdata merge -> profile-use rebuild.
 # Requires: llvm-tools (rustup component), k6, the calib seed DB.
 set -euo pipefail
-CALIB=${CALIB:-/tmp/opencode/calib}
+CALIB=${CALIB:-$HOME/.cache/calib}
 DB=${SQLITE_PATH:-$CALIB/seed.db}
 PROF_DIR=$CALIB/pgo
 mkdir -p "$PROF_DIR"
