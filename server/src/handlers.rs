@@ -541,3 +541,41 @@ mod tests {
         let _ = std::fs::remove_dir_all(std::env::temp_dir().join(format!("handlers-{}", std::process::id())));
     }
 }
+
+#[cfg(test)]
+mod ranking {
+    use super::*;
+    use crate::store::Store;
+
+    /// In-process hotspot driver for callgrind (ch53-style ranking):
+    /// valgrind --tool=callgrind cargo test --release ranking_driver
+    /// then callgrind_annotate. Exercises feed emit + post get + parse.
+    #[test]
+    fn ranking_driver() {
+        let db = std::env::var("RANKING_DB")
+            .unwrap_or_else(|_| "/home/wyatt/.cache/calib/seed.db".to_string());
+        let Ok(store) = Store::open(&db, "calib-secret") else {
+            eprintln!("ranking driver: no seed DB — skipping");
+            return;
+        };
+        let mut out = Vec::with_capacity(1 << 16);
+        let req_bytes: &[u8] =
+            b"GET /posts/42 HTTP/1.1\r\nHost: x\r\nAuthorization: Bearer abc\r\n\r\n";
+
+        // warm-up
+        let _ = reader_feed_emit(&store, 25, &mut out);
+        let _ = reader_post_get_emit(&store, 42, &mut out);
+        let _ = uring_http::http::parse(req_bytes);
+
+        // measured loop: 1000 hot-path iterations
+        for i in 0..1000i64 {
+            out.clear();
+            let id = 1 + (i % 50000);
+            let _ = reader_feed_emit(&store, 25, &mut out);
+            let _ = reader_post_get_emit(&store, id, &mut out);
+            let parsed = uring_http::http::parse(req_bytes).expect("parses");
+            std::hint::black_box(parsed);
+            std::hint::black_box(&out);
+        }
+    }
+}
