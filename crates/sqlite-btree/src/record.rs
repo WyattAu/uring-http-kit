@@ -52,6 +52,19 @@ pub const fn serial_type_body_len(serial_type: u64) -> Option<usize> {
     }
 }
 
+/// Fast path: 1-byte varint (value < 128) — every serial-type code and
+/// most header sizes in the challenge schema hit this. `None` means
+/// "fall back to the full decoder".
+#[inline(always)]
+fn decode_varint1(buf: &[u8], pos: usize) -> Option<(u64, usize)> {
+    let b = *buf.get(pos)?;
+    if b < 0x80 {
+        Some((b as u64, 1))
+    } else {
+        None
+    }
+}
+
 /// Decode the header of a record body into `out`, allocation-free.
 /// Returns `(body_len, field_count)` where `body_len` is the total record
 /// body length the header declares and `field_count` is how many entries of
@@ -59,7 +72,12 @@ pub const fn serial_type_body_len(serial_type: u64) -> Option<usize> {
 /// Returns `DecodeError::SizeMismatch`-adjacent `TooManyFields` when `out`
 /// is shorter than the header declares.
 pub fn decode_header(buf: &[u8], out: &mut [Field]) -> Result<(usize, usize), DecodeError> {
-    let (header_size, mut pos) = varint::decode(buf).map_err(|_| DecodeError::Truncated)?;
+    // CL-001 fix 1: the header-size varint is 1 byte for every record
+    // with fewer than 128 serial-type bytes (all conforming rows here)
+    let (header_size, mut pos) = match decode_varint1(buf, 0) {
+        Some(v) => v,
+        None => varint::decode(buf).map_err(|_| DecodeError::Truncated)?,
+    };
     if header_size < (pos as u64) || header_size as usize > buf.len() {
         return Err(DecodeError::SizeMismatch);
     }
@@ -67,7 +85,11 @@ pub fn decode_header(buf: &[u8], out: &mut [Field]) -> Result<(usize, usize), De
     let mut count = 0usize;
     let mut body_off = header_end;
     while pos < header_end {
-        let (st, n) = varint::decode(&buf[pos..]).map_err(|_| DecodeError::Truncated)?;
+        // CL-001 fix 1: inline 1-byte serial types before the call
+        let (st, n) = match decode_varint1(buf, pos) {
+            Some(v) => v,
+            None => varint::decode(&buf[pos..]).map_err(|_| DecodeError::Truncated)?,
+        };
         pos += n;
         let len = serial_type_body_len(st).ok_or(DecodeError::BadSerialType)?;
         if count >= out.len() {
