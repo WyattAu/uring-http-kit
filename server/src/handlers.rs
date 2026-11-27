@@ -170,17 +170,42 @@ pub fn reader_username(store: &Store, user_id: i64) -> Result<Option<Vec<u8>>, R
 pub fn reader_feed_emit(store: &Store, max: usize, out: &mut Vec<u8>) -> Result<(), ReaderError> {
     let r = store.reader().ok_or(ReaderError::OutOfRange)?;
     let roots = &store.roots;
-    let mut cur = Cursor::table(r, roots.posts)?;
     out.reserve(4096);
     out.extend_from_slice(b"{\"posts\":[");
+
+    // pass A: collect the feed's post ids (descending rowids)
+    let mut ids: Vec<i64> = Vec::with_capacity(max);
+    {
+        let mut cur = Cursor::table(r, roots.posts)?;
+        if cur.last()? != Step::Moved {
+            out.push(b']');
+            out.push(b'}');
+            return Ok(());
+        }
+        loop {
+            ids.push(cur.rowid()?);
+            if ids.len() == max || cur.prev()? != Step::Moved {
+                break;
+            }
+        }
+    }
+
+    // CL-001b: ONE batch index walk (single B-tree descent) instead of
+    // one root-to-leaf walk per row — the 51%-of-Ir class
+    let mut ids_asc = ids.clone();
+    ids_asc.reverse();
+    let mut scan = IndexScan::new(r, roots.likes_idx)?;
+    let counts = scan.count_each(&ids_asc)?;
+
+    // pass B: decode + emit (author resolve unchanged)
+    let mut cur = Cursor::table(r, roots.posts)?;
+    let mut ucur = Cursor::table(r, roots.users)?;
     let mut emitted = 0usize;
     if cur.last()? != Step::Moved {
         out.push(b']');
         out.push(b'}');
         return Ok(());
     }
-    let mut ucur = Cursor::table(r, roots.users)?;
-    let mut scan = IndexScan::new(r, roots.likes_idx)?;
     loop {
         let id = cur.rowid()?;
         let payload = cur.payload()?;
@@ -225,7 +250,13 @@ pub fn reader_feed_emit(store: &Store, max: usize, out: &mut Vec<u8>) -> Result<
             }
             &up[uf[1].offset..uf[1].offset + uf[1].len]
         };
-        let like_count = scan.count_prefix(id)?;
+        // batch-precomputed count: position in the descending id list
+        let like_count = {
+            let pos = ids
+                .binary_search_by(|probe| id.cmp(probe))
+                .expect("feed id must be in the batched set");
+            counts[pos]
+        };
         // emit row: {"id":N,"body":"…","created_at":"…","author":"…","like_count":N}
         if emitted > 0 {
             out.push(b',');

@@ -46,3 +46,18 @@ NEXT (CL-001b, spec'd): IndexScan batch walk — feed ids are a
 consecutive descending window; one forward scan from
 lower_bound(min_id) counting into a (max-min+1)-slot vector replaces
 25 independent walks. Targets the 51% IndexScan class.
+
+## CL-001b: IndexScan batch walk = −89.4% total Ir (2026-11-27)
+
+MEASURED (same driver, same flags): 3,193,456,574 -> 337,556,628 Ir.
+One sequential index scan (single B-tree descent + sequential advance,
+counting into a slot vector) replaces 25 independent root-to-leaf
+walks per feed. IndexScan class: 51% -> ~23% of a 9.5x-smaller total.
+Oracle re-run GREEN after the rewiring (query_oracle + varint + all
+feed-server tests). decode_header now 25.3% of the remainder.
+CUMULATIVE CL-001 program: 3.834B -> 337.6M Ir = -91.2% (11.4x).
+HONEST CAVEAT: the driver measures the decode layer in isolation; the
+real server's wall now shifts to transport/syscalls. arjay's box
+remains the instrument (paired A/B on his harness is the ship gate).
+NEXT: re-profile the full server under load to find the NEW top —
+the decode layer is no longer it.

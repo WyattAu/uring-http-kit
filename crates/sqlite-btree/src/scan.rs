@@ -371,6 +371,34 @@ impl<'a> IndexScan<'a> {
         }
         Ok(count)
     }
+
+    /// CL-001b batch walk: ONE sequential scan counting entries per id.
+    /// `ids_asc` must be sorted ASCENDING; returns counts parallel to it.
+    /// Replaces N independent root-to-leaf walks (each a fresh page
+    /// descent) with a single descent + sequential advance — the feed's
+    /// like-counts cost one B-tree traversal instead of N.
+    pub fn count_each(&mut self, ids_asc: &[i64]) -> Result<Vec<i64>, ReaderError> {
+        let mut counts = vec![0i64; ids_asc.len()];
+        if ids_asc.is_empty() {
+            return Ok(counts);
+        }
+        self.lower_bound(ids_asc[0])?;
+        let mut idx = 0usize;
+        while let Some(payload) = self.advance()? {
+            let k = Self::key_of(payload)?;
+            while idx < ids_asc.len() && ids_asc[idx] < k {
+                idx += 1;
+            }
+            if idx == ids_asc.len() {
+                break; // past the last wanted id — early exit
+            }
+            if ids_asc[idx] == k {
+                counts[idx] += 1;
+            }
+            // k below the next wanted id: gap in the index, keep scanning
+        }
+        Ok(counts)
+    }
 }
 
 fn be16(b: &[u8], off: usize) -> Result<usize, ReaderError> {
