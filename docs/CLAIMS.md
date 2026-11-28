@@ -61,3 +61,29 @@ real server's wall now shifts to transport/syscalls. arjay's box
 remains the instrument (paired A/B on his harness is the ship gate).
 NEXT: re-profile the full server under load to find the NEW top —
 the decode layer is no longer it.
+
+## CL-001c: io_uring_enter = 88.4% of syscall time, 37% error rate (2026-11-28)
+
+Instrument: full server under strace -c -f (ancestor tracing), k6
+burst, diagnostic-grade (box load 14-17, client SIGKILLed at end —
+counts are partial but the signal is unmistakable).
+
+| syscall | % time | calls | errors |
+|---|---|---|---|
+| io_uring_enter | 88.38% | 5,271 | 1,972 |
+| mmap | 2.36% | 405 | |
+| statx | 2.22% | 746 | |
+| openat | 2.11% | 385 | |
+
+FINDINGS:
+1. io_uring_enter dominates with a 37% error rate (1,972/5,271) —
+   the pass loop's enter pattern wastes ~1.2 syscalls/iteration on
+   enters that return without completions. Fix class: adaptive enter
+   policy (block when no work in flight, skip when completions are
+   pending) + DEFER_TASKRUN/COOP_TASKRUN (env-ready, URING_DEFER=1).
+2. NEW: the snapshot refresh costs 2-3 syscalls/request (statx on the
+   WAL path + WalIndex::open's openat+read of the header). Fix class:
+   cache the WAL fd at Reopen; fstat(fd) + header pread on the cached
+   fd. Rule-5-correct (the check still happens every request — only
+   the mechanics get cheaper).
+3. Decode layer confirmed out of the way (CL-001b's -91.2% holds).
