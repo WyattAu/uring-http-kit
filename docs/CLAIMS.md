@@ -112,3 +112,14 @@ Combined CL-001 program effect: decode -91.2% Ir, WAL refresh cycle
 eliminated, transport enters -48%. NEXT WALL (post-profiling):
 whatever the full-server strace shows now — likely the pass cadence
 itself (ADR 0005 adaptive scheduler) or multishot recv.
+
+## Backfill: pre-CLAIMS measurements (attached from PLAN.md / git history)
+
+- E06 scatter-gather sends + F26 SHA-NI: +13% within-window
+  (old->new), measured 2026-11-24, commit ff0c66c. Paired protocol.
+- kensac comparison attempt (2026-11-22): INVALIDATED by box variance
+  (swap-in during window) — superseded by the paired-interleave
+  protocol. Recorded as negative knowledge, not a claim.
+- G5 baseline table (kensac 11-14k vs ours 6-6.5k req/s, confined
+  rig): measured 2026-11-22, PLAN.md table. Rig limit: confined k6
+  saturates ~6.4k — absolute numbers require arjay's box.
