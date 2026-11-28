@@ -100,3 +100,15 @@ statx 746 -> 82 (~1/refresh, the gate itself). io_uring_enter remains
 dominant (792 calls, 196 errors, 66%) — the adaptive enter policy is
 the next fix (CL-001d), spec: block-when-idle, skip-when-pending.
 Oracle re-run GREEN after the fix (sqlite-btree 5+1+3, feed-server 3+15).
+
+## CL-001d: adaptive enter policy = −48% enters, zero no-ops (2026-11-28)
+
+MEASURED (20-request strace, same protocol as baseline): enters
+398 -> 206 (-48%); provably-no-op enter(0,0,0) flushes: many -> 0.
+Remaining errors (90 ETIME) are the idle-pass 250ms heartbeat —
+correct and required. Fix: poll flushes only when SQEs are pending
+and waits only when the CQ ring is empty (uring-kit b67bb9f).
+Combined CL-001 program effect: decode -91.2% Ir, WAL refresh cycle
+eliminated, transport enters -48%. NEXT WALL (post-profiling):
+whatever the full-server strace shows now — likely the pass cadence
+itself (ADR 0005 adaptive scheduler) or multishot recv.
