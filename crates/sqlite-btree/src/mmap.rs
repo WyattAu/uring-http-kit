@@ -39,6 +39,12 @@ impl MappedFile {
         self.mmap.len()
     }
 
+    /// fstat on the held fd — cheaper than `metadata(path)` (no path
+    /// walk) for the per-refresh WAL size check.
+    pub fn metadata(&self) -> io::Result<std::fs::Metadata> {
+        self.file.metadata()
+    }
+
     pub fn is_empty(&self) -> bool {
         self.mmap.is_empty()
     }

@@ -87,3 +87,16 @@ FINDINGS:
    fd. Rule-5-correct (the check still happens every request — only
    the mechanics get cheaper).
 3. Decode layer confirmed out of the way (CL-001b's -91.2% holds).
+
+## CL-001c-fix: WAL refresh syscalls eliminated per request (2026-11-28)
+
+Fix shipped: (a) None-branch size gate — skip WalIndex::open while the
+WAL is smaller than a header (was: openat+mmap+munmap of the empty WAL
+EVERY pass); (b) Some-branch fstat on the cached fd instead of a path
+statx walk. Rule-5-correct: the freshness check still runs every
+refresh — only the mechanics got cheaper.
+MEASURED (strace, 40 requests): openat 385 -> 10 (startup-only);
+statx 746 -> 82 (~1/refresh, the gate itself). io_uring_enter remains
+dominant (792 calls, 196 errors, 66%) — the adaptive enter policy is
+the next fix (CL-001d), spec: block-when-idle, skip-when-pending.
+Oracle re-run GREEN after the fix (sqlite-btree 5+1+3, feed-server 3+15).

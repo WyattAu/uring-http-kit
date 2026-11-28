@@ -14,7 +14,7 @@ use std::fs::File;
 use std::io;
 use std::path::Path;
 
-const WAL_HEADER: usize = 32;
+pub const WAL_HEADER: usize = 32;
 const FRAME_HEADER: usize = 24;
 const MAGIC_LE: u32 = 0x377f0682; // checksum words read little-endian
 const MAGIC_BE: u32 = 0x377f0683; // big-endian words

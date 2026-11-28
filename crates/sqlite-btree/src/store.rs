@@ -110,7 +110,15 @@ impl Store {
         }
         let action = match &mut self.wal {
             None => {
-                // a WAL may have appeared (first write)
+                // a WAL may have appeared (first write). Cheap size gate
+                // first: WalIndex::open would open+mmap+unmap the (still
+                // empty) WAL EVERY pass — 3 syscalls per pass for a
+                // known answer. A header needs >= WAL_HEADER bytes.
+                let len = std::fs::metadata(&wp).map(|m| m.len()).unwrap_or(0);
+                if len < crate::wal::WAL_HEADER as u64 {
+                    self.snapshot = 0;
+                    return Ok(());
+                }
                 match WalIndex::open(&wp, self.page_size).map_err(io_err)? {
                     Ok(Some(_)) => Action::Reopen,
                     Ok(None) => {
@@ -124,8 +132,12 @@ impl Store {
                 // size on disk first: growth remaps in place; SHRINK (a
                 // TRUNCATE checkpoint) invalidates every byte of the old
                 // mapping — touching it is SIGBUS, so re-open instead
-                let on_disk = std::fs::metadata(&wp).map(|m| m.len() as usize).unwrap_or(0);
+                // fstat on the cached fd — no path walk (CL-001c fix b)
+                let on_disk = map.metadata().map(|m| m.len() as usize).unwrap_or(0);
                 if on_disk < map.len() {
+                    if std::env::var_os("REREAD_DEBUG").is_some() {
+                        eprintln!("refresh: REOPEN shrink on_disk={on_disk} map_len={}", map.len());
+                    }
                     Action::Reopen
                 } else {
                     map.remap_if_grown().map_err(io_err)?;
@@ -134,11 +146,19 @@ impl Store {
                     let restarted =
                         WalIndex::header_salts(map).is_none_or(|salts| salts != idx.salts());
                     if restarted {
+                        if std::env::var_os("REREAD_DEBUG").is_some() {
+                            eprintln!("refresh: REOPEN salts-restarted");
+                        }
                         Action::Reopen
                     } else {
                         match idx.scan_new_frames(map.as_slice())? {
                             ScanResult::NoChange | ScanResult::Extended => Action::Scan,
-                            ScanResult::Truncated | ScanResult::Invalid => Action::Reopen,
+                            res @ (ScanResult::Truncated | ScanResult::Invalid) => {
+                                if std::env::var_os("REREAD_DEBUG").is_some() {
+                                    eprintln!("refresh: REOPEN scan={}", match res { ScanResult::Truncated => "truncated", _ => "invalid" });
+                                }
+                                Action::Reopen
+                            }
                         }
                     }
                 }
